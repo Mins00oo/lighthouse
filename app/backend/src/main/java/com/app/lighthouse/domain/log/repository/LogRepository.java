@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -27,6 +28,7 @@ import com.app.lighthouse.domain.log.repository.row.ResponseTimeRow;
 import com.app.lighthouse.domain.log.repository.row.ServerStatusRow;
 import com.app.lighthouse.domain.log.repository.row.ServiceSummaryRow;
 import com.app.lighthouse.domain.log.repository.row.TimelineRow;
+import com.app.lighthouse.domain.log.repository.row.TimeseriesBucketRow;
 import com.app.lighthouse.global.util.TimeUtils;
 
 @Repository
@@ -42,9 +44,13 @@ public class LogRepository {
 
     // ========== 로그 검색 ==========
 
+    private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of(
+            "timestamp", "level", "service", "host", "http_status", "response_time_ms"
+    );
+
     public List<LogEntryDto> searchLogs(LogSearchRequest request) {
         StringBuilder sql = new StringBuilder(
-                "SELECT timestamp, host, service, env, level, logger, thread, message," +
+                "SELECT toString(id) AS id, timestamp, host, service, env, level, logger, thread, message," +
                 " http_method, http_path, http_status, response_time_ms," +
                 " exception_class, stack_trace, raw_event" +
                 " FROM " + TABLE + " WHERE 1=1");
@@ -52,7 +58,10 @@ public class LogRepository {
         List<Object> params = new ArrayList<>();
         appendSearchConditions(sql, params, request);
 
-        sql.append(" ORDER BY timestamp DESC LIMIT ? OFFSET ?");
+        String sortCol = ALLOWED_SORT_COLUMNS.contains(request.getSort()) ? request.getSort() : "timestamp";
+        String sortDir = "asc".equalsIgnoreCase(request.getOrder()) ? "ASC" : "DESC";
+        sql.append(" ORDER BY ").append(sortCol).append(" ").append(sortDir);
+        sql.append(" LIMIT ? OFFSET ?");
         params.add(request.getSize());
         params.add(request.getPage() * request.getSize());
 
@@ -111,17 +120,25 @@ public class LogRepository {
         return count != null ? count : 0;
     }
 
-    public long getRequestCount(LocalDateTime from, LocalDateTime to) {
-        String sql = "SELECT count() FROM " + TABLE +
-                " WHERE timestamp >= ? AND timestamp < ? AND http_method != ''";
-        Long count = jdbc.queryForObject(sql, Long.class, from, to);
+    public long getRequestCount(LocalDateTime from, LocalDateTime to, String service) {
+        StringBuilder sql = new StringBuilder("SELECT count() FROM " + TABLE +
+                " WHERE timestamp >= ? AND timestamp < ? AND http_method != ''");
+        List<Object> params = new ArrayList<>();
+        params.add(from);
+        params.add(to);
+        appendOptionalFilter(sql, params, "service", service);
+        Long count = jdbc.queryForObject(sql.toString(), Long.class, params.toArray());
         return count != null ? count : 0L;
     }
 
-    public double getAvgResponseTime(LocalDateTime from, LocalDateTime to) {
-        String sql = "SELECT avg(response_time_ms) FROM " + TABLE +
-                " WHERE timestamp >= ? AND timestamp < ? AND response_time_ms > 0";
-        Double val = jdbc.queryForObject(sql, Double.class, from, to);
+    public double getAvgResponseTime(LocalDateTime from, LocalDateTime to, String service) {
+        StringBuilder sql = new StringBuilder("SELECT avg(response_time_ms) FROM " + TABLE +
+                " WHERE timestamp >= ? AND timestamp < ? AND response_time_ms > 0");
+        List<Object> params = new ArrayList<>();
+        params.add(from);
+        params.add(to);
+        appendOptionalFilter(sql, params, "service", service);
+        Double val = jdbc.queryForObject(sql.toString(), Double.class, params.toArray());
         return val != null ? Math.round(val * 100.0) / 100.0 : 0.0;
     }
 
@@ -134,10 +151,14 @@ public class LogRepository {
 
     // ========== Overview: 에러 건수 (HTTP 4xx+5xx) ==========
 
-    public long getHttpErrorCount(LocalDateTime from, LocalDateTime to) {
-        String sql = "SELECT count() FROM " + TABLE +
-                " WHERE timestamp >= ? AND timestamp < ? AND http_status >= 400";
-        Long count = jdbc.queryForObject(sql, Long.class, from, to);
+    public long getHttpErrorCount(LocalDateTime from, LocalDateTime to, String service) {
+        StringBuilder sql = new StringBuilder("SELECT count() FROM " + TABLE +
+                " WHERE timestamp >= ? AND timestamp < ? AND http_status >= 400");
+        List<Object> params = new ArrayList<>();
+        params.add(from);
+        params.add(to);
+        appendOptionalFilter(sql, params, "service", service);
+        Long count = jdbc.queryForObject(sql.toString(), Long.class, params.toArray());
         return count != null ? count : 0L;
     }
 
@@ -179,18 +200,24 @@ public class LogRepository {
 
     // ========== Overview: Slow API (P95 내림차순) ==========
 
-    public List<ApiRankingRow> getSlowApis(LocalDateTime from, LocalDateTime to, int limit) {
-        String sql = "SELECT http_method, http_path," +
+    public List<ApiRankingRow> getSlowApis(LocalDateTime from, LocalDateTime to, int limit, String service) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT http_method, http_path," +
                 " count() AS request_count," +
                 " avg(response_time_ms) AS avg_ms," +
                 " quantile(0.95)(response_time_ms) AS p95_ms," +
                 " countIf(http_status >= 500) AS error_count" +
                 " FROM " + TABLE +
-                " WHERE timestamp >= ? AND timestamp < ? AND http_method != '' AND response_time_ms > 0" +
-                " GROUP BY http_method, http_path" +
-                " ORDER BY p95_ms DESC LIMIT ?";
+                " WHERE timestamp >= ? AND timestamp < ? AND http_method != '' AND response_time_ms > 0");
 
-        return jdbc.query(sql,
+        List<Object> params = new ArrayList<>();
+        params.add(from);
+        params.add(to);
+        appendOptionalFilter(sql, params, "service", service);
+        sql.append(" GROUP BY http_method, http_path ORDER BY p95_ms DESC LIMIT ?");
+        params.add(limit);
+
+        return jdbc.query(sql.toString(),
                 (rs, rowNum) -> new ApiRankingRow(
                         rs.getString("http_method"),
                         rs.getString("http_path"),
@@ -199,27 +226,35 @@ public class LogRepository {
                         roundTwo(rs.getDouble("p95_ms")),
                         rs.getLong("error_count")
                 ),
-                from, to, limit);
+                params.toArray());
     }
 
     // ========== Overview: HTTP 에러 로그 (4xx/5xx) ==========
 
-    public List<ErrorLogRow> getHttpErrorLogs(LocalDateTime from, LocalDateTime to, int limit) {
-        String sql = "SELECT timestamp, http_method, http_path, http_status, service, message" +
+    public List<ErrorLogRow> getHttpErrorLogs(LocalDateTime from, LocalDateTime to, int limit, String service) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT timestamp, http_method, http_path, http_status, service, message, stack_trace" +
                 " FROM " + TABLE +
-                " WHERE timestamp >= ? AND timestamp < ? AND http_status >= 400" +
-                " ORDER BY timestamp DESC LIMIT ?";
+                " WHERE timestamp >= ? AND timestamp < ? AND http_status >= 400");
 
-        return jdbc.query(sql,
+        List<Object> params = new ArrayList<>();
+        params.add(from);
+        params.add(to);
+        appendOptionalFilter(sql, params, "service", service);
+        sql.append(" ORDER BY timestamp DESC LIMIT ?");
+        params.add(limit);
+
+        return jdbc.query(sql.toString(),
                 (rs, rowNum) -> new ErrorLogRow(
                         toSafeLocalDateTime(rs.getTimestamp("timestamp")),
                         rs.getString("http_method"),
                         rs.getString("http_path"),
                         rs.getInt("http_status"),
                         rs.getString("service"),
-                        rs.getString("message")
+                        rs.getString("message"),
+                        emptyToNull(rs.getString("stack_trace"))
                 ),
-                from, to, limit);
+                params.toArray());
     }
 
     // ========== 대시보드: 로그 레벨 분포 ==========
@@ -519,6 +554,46 @@ public class LogRepository {
                 from, to, serviceName);
     }
 
+    // ========== 대시보드: 통합 시계열 (timeseries) ==========
+
+    public List<TimeseriesBucketRow> getTimeseries(LocalDateTime from, LocalDateTime to,
+                                                     String interval, String service) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT toStartOfInterval(timestamp, INTERVAL " + interval + ") AS time_bucket," +
+                " count() AS request_count," +
+                " quantile(0.95)(response_time_ms) AS p95_ms," +
+                " quantile(0.99)(response_time_ms) AS p99_ms" +
+                " FROM " + TABLE +
+                " WHERE timestamp >= ? AND timestamp < ? AND http_method != ''");
+
+        List<Object> params = new ArrayList<>();
+        params.add(from);
+        params.add(to);
+        appendOptionalFilter(sql, params, "service", service);
+        sql.append(" GROUP BY time_bucket ORDER BY time_bucket ASC");
+
+        return jdbc.query(sql.toString(),
+                (rs, rowNum) -> new TimeseriesBucketRow(
+                        toSafeLocalDateTime(rs.getTimestamp("time_bucket")),
+                        rs.getLong("request_count"),
+                        roundTwo(rs.getDouble("p95_ms")),
+                        roundTwo(rs.getDouble("p99_ms"))
+                ),
+                params.toArray());
+    }
+
+    // ========== 로그 상세 조회 ==========
+
+    public LogEntryDto findById(String id) {
+        String sql = "SELECT toString(id) AS id, timestamp, host, service, env, level, logger, thread, message," +
+                " http_method, http_path, http_status, response_time_ms," +
+                " exception_class, stack_trace, raw_event" +
+                " FROM " + TABLE + " WHERE id = toUUID(?)";
+
+        List<LogEntryDto> results = jdbc.query(sql, (rs, rowNum) -> mapToLogEntry(rs), id);
+        return results.isEmpty() ? null : results.get(0);
+    }
+
     // ========== Private Helpers ==========
 
     private void appendSearchConditions(StringBuilder sql, List<Object> params,
@@ -544,14 +619,71 @@ public class LogRepository {
             params.add(request.getEnv());
         }
         if (hasValue(request.getLevel())) {
-            sql.append(" AND level = ?");
-            params.add(request.getLevel().toUpperCase());
+            appendInFilter(sql, params, "level", request.getLevel().toUpperCase());
         }
         if (hasValue(request.getKeyword())) {
             sql.append(" AND (positionCaseInsensitive(message, ?) > 0" +
                     " OR positionCaseInsensitive(raw_event, ?) > 0)");
             params.add(request.getKeyword());
             params.add(request.getKeyword());
+        }
+        if (hasValue(request.getStatus())) {
+            appendStatusFilter(sql, params, request.getStatus());
+        }
+        if (hasValue(request.getMethod())) {
+            appendInFilter(sql, params, "http_method", request.getMethod().toUpperCase());
+        }
+        if (hasValue(request.getPath())) {
+            sql.append(" AND positionCaseInsensitive(http_path, ?) > 0");
+            params.add(request.getPath());
+        }
+        if (request.getMinResponseTime() != null) {
+            sql.append(" AND response_time_ms >= ?");
+            params.add(request.getMinResponseTime());
+        }
+        if (request.getMaxResponseTime() != null) {
+            sql.append(" AND response_time_ms <= ?");
+            params.add(request.getMaxResponseTime());
+        }
+    }
+
+    private void appendInFilter(StringBuilder sql, List<Object> params, String column, String csv) {
+        String[] values = csv.split(",");
+        if (values.length == 1) {
+            sql.append(" AND ").append(column).append(" = ?");
+            params.add(values[0].trim());
+        } else {
+            String placeholders = String.join(", ", Collections.nCopies(values.length, "?"));
+            sql.append(" AND ").append(column).append(" IN (").append(placeholders).append(")");
+            for (String v : values) {
+                params.add(v.trim());
+            }
+        }
+    }
+
+    private void appendStatusFilter(StringBuilder sql, List<Object> params, String status) {
+        String[] parts = status.split(",");
+        if (parts.length == 1) {
+            appendSingleStatusCondition(sql, params, parts[0].trim());
+        } else {
+            sql.append(" AND (");
+            for (int i = 0; i < parts.length; i++) {
+                if (i > 0) sql.append(" OR ");
+                appendSingleStatusCondition(sql, params, parts[i].trim());
+            }
+            sql.append(")");
+        }
+    }
+
+    private void appendSingleStatusCondition(StringBuilder sql, List<Object> params, String status) {
+        if (status.endsWith("xx")) {
+            int base = Integer.parseInt(status.substring(0, 1)) * 100;
+            sql.append("(http_status >= ? AND http_status < ?)");
+            params.add(base);
+            params.add(base + 100);
+        } else {
+            sql.append("http_status = ?");
+            params.add(Integer.parseInt(status));
         }
     }
 
@@ -567,7 +699,15 @@ public class LogRepository {
         int httpStatus = rs.getInt("http_status");
         int responseTime = rs.getInt("response_time_ms");
 
+        String id = null;
+        try {
+            id = rs.getString("id");
+        } catch (SQLException ignored) {
+            // id 컬럼이 SELECT에 없는 경우 무시
+        }
+
         return LogEntryDto.builder()
+                .id(id)
                 .timestamp(toSafeLocalDateTime(rs.getTimestamp("timestamp")))
                 .host(rs.getString("host"))
                 .service(rs.getString("service"))

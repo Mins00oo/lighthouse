@@ -9,8 +9,9 @@ import lombok.Getter;
 @Builder
 public class LogSearchResponse {
 
-    private final List<LogEntryDto> logs;
-    private final long totalCount;
+    private final List<LogEntryDto> content;
+    private final long totalElements;
+    private final int totalPages;
     private final int page;
     private final int size;
     private final boolean hasNext;

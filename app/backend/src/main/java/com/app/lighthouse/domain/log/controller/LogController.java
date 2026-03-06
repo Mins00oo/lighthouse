@@ -5,10 +5,12 @@ import java.time.LocalDateTime;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.app.lighthouse.domain.log.dto.LogEntryDto;
 import com.app.lighthouse.domain.log.dto.LogSearchRequest;
 import com.app.lighthouse.domain.log.dto.LogSearchResponse;
 import com.app.lighthouse.domain.log.dto.LogTimelineDto;
@@ -28,6 +30,11 @@ public class LogController {
     @GetMapping
     public ApiResponse<LogSearchResponse> searchLogs(@Valid @ModelAttribute LogSearchRequest request) {
         return ApiResponse.ok(logService.searchLogs(request));
+    }
+
+    @GetMapping("/{id}")
+    public ApiResponse<LogEntryDto> getLogDetail(@PathVariable String id) {
+        return ApiResponse.ok(logService.getLogDetail(id));
     }
 
     @GetMapping("/timeline")

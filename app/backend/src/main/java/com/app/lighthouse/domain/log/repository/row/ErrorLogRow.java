@@ -8,6 +8,7 @@ public record ErrorLogRow(
         String httpPath,
         int httpStatus,
         String service,
-        String message
+        String message,
+        String stackTrace
 ) {
 }

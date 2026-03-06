@@ -35,16 +35,26 @@ public class LogService {
         validateTimeRange(request.getFrom(), request.getTo());
 
         List<LogEntryDto> logs = logRepository.searchLogs(request);
-        long totalCount = logRepository.countLogs(request);
-        boolean hasNext = (long) (request.getPage() + 1) * request.getSize() < totalCount;
+        long totalElements = logRepository.countLogs(request);
+        int totalPages = (int) Math.ceil((double) totalElements / request.getSize());
+        boolean hasNext = (long) (request.getPage() + 1) * request.getSize() < totalElements;
 
         return LogSearchResponse.builder()
-                .logs(logs)
-                .totalCount(totalCount)
+                .content(logs)
+                .totalElements(totalElements)
+                .totalPages(totalPages)
                 .page(request.getPage())
                 .size(request.getSize())
                 .hasNext(hasNext)
                 .build();
+    }
+
+    public LogEntryDto getLogDetail(String id) {
+        LogEntryDto entry = logRepository.findById(id);
+        if (entry == null) {
+            throw new IllegalArgumentException("로그를 찾을 수 없습니다: " + id);
+        }
+        return entry;
     }
 
     public LogTimelineDto getTimeline(LocalDateTime from, LocalDateTime to,

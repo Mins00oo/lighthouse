@@ -14,6 +14,7 @@ import com.app.lighthouse.domain.dashboard.dto.OverviewSummaryDto;
 import com.app.lighthouse.domain.dashboard.dto.RequestVolumeDto;
 import com.app.lighthouse.domain.dashboard.dto.ResponseTimeDto;
 import com.app.lighthouse.domain.dashboard.dto.SlowApiDto;
+import com.app.lighthouse.domain.dashboard.dto.TimeseriesBucketDto;
 import com.app.lighthouse.domain.dashboard.service.DashboardService;
 import com.app.lighthouse.global.response.ApiResponse;
 
@@ -29,8 +30,18 @@ public class DashboardController {
     @GetMapping("/summary")
     public ApiResponse<OverviewSummaryDto> getSummary(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
-        return ApiResponse.ok(dashboardService.getSummary(from, to));
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) String service) {
+        return ApiResponse.ok(dashboardService.getSummary(from, to, service));
+    }
+
+    @GetMapping("/timeseries")
+    public ApiResponse<List<TimeseriesBucketDto>> getTimeseries(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam int intervalMin,
+            @RequestParam(required = false) String service) {
+        return ApiResponse.ok(dashboardService.getTimeseries(from, to, intervalMin, service));
     }
 
     @GetMapping("/request-volume")
@@ -53,15 +64,17 @@ public class DashboardController {
     public ApiResponse<List<SlowApiDto>> getSlowApis(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam(defaultValue = "10") int limit) {
-        return ApiResponse.ok(dashboardService.getSlowApis(from, to, limit));
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) String service) {
+        return ApiResponse.ok(dashboardService.getSlowApis(from, to, limit, service));
     }
 
     @GetMapping("/error-logs")
     public ApiResponse<List<ErrorLogDto>> getErrorLogs(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam(defaultValue = "20") int limit) {
-        return ApiResponse.ok(dashboardService.getErrorLogs(from, to, limit));
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) String service) {
+        return ApiResponse.ok(dashboardService.getErrorLogs(from, to, limit, service));
     }
 }

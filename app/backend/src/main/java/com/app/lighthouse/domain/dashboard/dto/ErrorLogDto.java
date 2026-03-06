@@ -19,5 +19,6 @@ public class ErrorLogDto {
     private final int httpStatus;
     private final String serviceName;
     private final String message;
+    private final String stackTrace;
     private final String traceId;
 }

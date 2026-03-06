@@ -15,6 +15,7 @@ import com.app.lighthouse.domain.dashboard.dto.OverviewSummaryDto;
 import com.app.lighthouse.domain.dashboard.dto.RequestVolumeDto;
 import com.app.lighthouse.domain.dashboard.dto.ResponseTimeDto;
 import com.app.lighthouse.domain.dashboard.dto.SlowApiDto;
+import com.app.lighthouse.domain.dashboard.dto.TimeseriesBucketDto;
 import com.app.lighthouse.domain.log.repository.LogRepository;
 import com.app.lighthouse.global.util.TimeUtils;
 
@@ -29,19 +30,38 @@ public class DashboardService {
     private static final int MAX_QUERY_DAYS = 7;
     private static final Set<Integer> ALLOWED_INTERVAL_MINUTES = Set.of(10, 30, 60);
 
-    public OverviewSummaryDto getSummary(LocalDateTime from, LocalDateTime to) {
+    public OverviewSummaryDto getSummary(LocalDateTime from, LocalDateTime to, String service) {
         LocalDateTime[] range = resolveAndValidate(from, to);
         from = range[0]; to = range[1];
 
-        long totalRequests = logRepository.getRequestCount(from, to);
-        long errorCount = logRepository.getHttpErrorCount(from, to);
-        double avgResponseTimeMs = logRepository.getAvgResponseTime(from, to);
+        long totalRequests = logRepository.getRequestCount(from, to, service);
+        long errorCount = logRepository.getHttpErrorCount(from, to, service);
+        double avgResponseTimeMs = logRepository.getAvgResponseTime(from, to, service);
 
         return OverviewSummaryDto.builder()
                 .totalRequests(totalRequests)
                 .errorCount(errorCount)
                 .avgResponseTimeMs(avgResponseTimeMs)
                 .build();
+    }
+
+    public List<TimeseriesBucketDto> getTimeseries(LocalDateTime from, LocalDateTime to,
+                                                      int intervalMin, String service) {
+        LocalDateTime[] range = resolveAndValidate(from, to);
+        from = range[0]; to = range[1];
+        validateIntervalMin(intervalMin);
+
+        String interval = intervalMin + " MINUTE";
+        var rows = logRepository.getTimeseries(from, to, interval, service);
+
+        return rows.stream()
+                .map(r -> TimeseriesBucketDto.builder()
+                        .time(r.time())
+                        .requestCount(r.requestCount())
+                        .p95ResponseTime(r.p95ResponseTime())
+                        .p99ResponseTime(r.p99ResponseTime())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     public List<RequestVolumeDto> getRequestVolume(LocalDateTime from, LocalDateTime to, int intervalMin) {
@@ -77,13 +97,13 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
-    public List<SlowApiDto> getSlowApis(LocalDateTime from, LocalDateTime to, int limit) {
+    public List<SlowApiDto> getSlowApis(LocalDateTime from, LocalDateTime to, int limit, String service) {
         LocalDateTime[] range = resolveAndValidate(from, to);
         from = range[0]; to = range[1];
 
         if (limit <= 0 || limit > 100) limit = 10;
 
-        var rows = logRepository.getSlowApis(from, to, limit);
+        var rows = logRepository.getSlowApis(from, to, limit, service);
 
         AtomicInteger rank = new AtomicInteger(1);
         return rows.stream()
@@ -98,13 +118,13 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
-    public List<ErrorLogDto> getErrorLogs(LocalDateTime from, LocalDateTime to, int limit) {
+    public List<ErrorLogDto> getErrorLogs(LocalDateTime from, LocalDateTime to, int limit, String service) {
         LocalDateTime[] range = resolveAndValidate(from, to);
         from = range[0]; to = range[1];
 
         if (limit <= 0 || limit > 200) limit = 20;
 
-        var rows = logRepository.getHttpErrorLogs(from, to, limit);
+        var rows = logRepository.getHttpErrorLogs(from, to, limit, service);
 
         return rows.stream()
                 .map(r -> ErrorLogDto.builder()
@@ -115,6 +135,7 @@ public class DashboardService {
                         .httpStatus(r.httpStatus())
                         .serviceName(r.service())
                         .message(r.message())
+                        .stackTrace(r.stackTrace())
                         .traceId(null)
                         .build())
                 .collect(Collectors.toList());

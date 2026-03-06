@@ -12,6 +12,7 @@ import lombok.Getter;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class LogEntryDto {
 
+    private final String id;
     private final LocalDateTime timestamp;
     private final String host;
     private final String service;
