@@ -1,33 +1,134 @@
 import Box from '@mui/material/Box';
+import { DataGrid } from '@mui/x-data-grid';
 
 import { useMonitoringTokens } from 'src/hooks/use-monitoring-tokens';
 
 import { fNumber } from 'src/utils/format-number';
+import { fDuration } from 'src/utils/format-duration';
 
 // ----------------------------------------------------------------------
 
-const COLUMNS = [
-  { id: 'rank', label: '#', width: 36, align: 'center' },
-  { id: 'method', label: 'Method', width: 60 },
-  { id: 'path', label: 'Endpoint', flex: 1 },
-  { id: 'p95', label: 'P95', width: 70, align: 'right' },
-  { id: 'avg', label: 'Avg', width: 70, align: 'right' },
-  { id: 'requests', label: 'Requests', width: 80, align: 'right' },
-];
+function MethodBadge({ method, tokens }) {
+  const colors = {
+    GET: tokens.status.info,
+    POST: tokens.status.success,
+    PUT: tokens.status.warning,
+    PATCH: tokens.status.warning,
+    DELETE: tokens.status.error,
+  };
+  const color = colors[method] || tokens.text.disabled;
+
+  return (
+    <Box
+      component="span"
+      sx={{
+        fontSize: '0.65rem',
+        fontWeight: 700,
+        color,
+        px: 0.75,
+        py: 0.25,
+        borderRadius: tokens.radiusSm,
+        border: `1px solid ${color}`,
+        opacity: 0.9,
+      }}
+    >
+      {method}
+    </Box>
+  );
+}
 
 // ----------------------------------------------------------------------
+
+function DurationCell({ value, tokens }) {
+  const isSlow = value > 2000;
+
+  return (
+    <Box
+      sx={{
+        fontVariantNumeric: 'tabular-nums',
+        fontWeight: isSlow ? 600 : 400,
+        color: isSlow ? tokens.status.error : value > 1000 ? tokens.status.warning : tokens.text.secondary,
+      }}
+    >
+      {fDuration(value)}
+    </Box>
+  );
+}
+
+// ----------------------------------------------------------------------
+
+function getColumns(t) {
+  return [
+    {
+      field: 'rank',
+      headerName: '#',
+      width: 50,
+      align: 'center',
+      headerAlign: 'center',
+      sortable: false,
+    },
+    {
+      field: 'httpMethod',
+      headerName: 'Method',
+      width: 80,
+      sortable: false,
+      renderCell: (params) => <MethodBadge method={params.value} tokens={t} />,
+    },
+    {
+      field: 'httpPath',
+      headerName: 'Endpoint',
+      flex: 1,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) => (
+        <Box
+          sx={{
+            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+            fontSize: '0.775rem',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'p95Ms',
+      headerName: 'P95',
+      width: 100,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (params) => <DurationCell value={params.value} tokens={t} />,
+    },
+    {
+      field: 'avgMs',
+      headerName: 'Avg',
+      width: 100,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (params) => <DurationCell value={params.value} tokens={t} />,
+    },
+    {
+      field: 'requestCount',
+      headerName: 'Requests',
+      width: 90,
+      align: 'right',
+      headerAlign: 'right',
+      valueFormatter: (value) => fNumber(value),
+    },
+  ];
+}
+
+// ----------------------------------------------------------------------
+
+const GRID_HEIGHT = 480;
 
 export function OverviewSlowApiTable({ data, sx }) {
   const t = useMonitoringTokens();
-  const rows = data ?? [];
-
-  const methodColors = {
-    GET: t.status.info,
-    POST: t.status.success,
-    PUT: t.status.warning,
-    PATCH: t.status.warning,
-    DELETE: t.status.error,
-  };
+  const rows = (data ?? []).map((row, index) => ({ id: `${row.httpMethod}-${row.httpPath}-${index}`, ...row }));
+  const columns = getColumns(t);
 
   return (
     <Box
@@ -35,7 +136,8 @@ export function OverviewSlowApiTable({ data, sx }) {
         bgcolor: t.bg.card,
         borderRadius: t.radius,
         border: `1px solid ${t.border.subtle}`,
-        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
         ...sx,
       }}
     >
@@ -48,147 +150,37 @@ export function OverviewSlowApiTable({ data, sx }) {
         </Box>
       </Box>
 
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          px: 2.5,
-          py: 1,
-          borderBottom: `1px solid ${t.border.subtle}`,
-          borderTop: `1px solid ${t.border.subtle}`,
-          bgcolor: t.bg.surface,
-        }}
-      >
-        {COLUMNS.map((col) => (
-          <Box
-            key={col.id}
-            sx={{
-              fontSize: '0.675rem',
-              fontWeight: 600,
+      <Box sx={{ height: GRID_HEIGHT }}>
+        <DataGrid
+          rows={rows}
+          columns={columns}
+          columnHeaderHeight={36}
+          disableColumnMenu
+          disableColumnResize
+          disableRowSelectionOnClick
+          hideFooter
+          getRowHeight={() => 44}
+          sx={{
+            border: 'none',
+            '& .MuiDataGrid-columnHeaders': {
+              bgcolor: t.bg.surface,
+              borderBottom: `1px solid ${t.border.subtle}`,
+              fontSize: '0.7rem',
+            },
+            '& .MuiDataGrid-cell': {
+              borderColor: t.border.subtle,
+              fontSize: '0.8rem',
+            },
+            '& .MuiDataGrid-row:hover': {
+              bgcolor: t.bg.cardHover,
+            },
+            '& .MuiDataGrid-overlay': {
+              fontSize: '0.8rem',
               color: t.text.disabled,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              ...(col.flex ? { flex: col.flex } : { width: col.width }),
-              ...(col.align && { textAlign: col.align }),
-            }}
-          >
-            {col.label}
-          </Box>
-        ))}
-      </Box>
-
-      {/* Rows */}
-      <Box sx={{ maxHeight: 440, overflow: 'auto' }}>
-        {rows.length === 0 && (
-          <Box sx={{ py: 4, textAlign: 'center', fontSize: '0.8rem', color: t.text.disabled }}>
-            데이터가 없습니다
-          </Box>
-        )}
-
-        {rows.map((row, index) => {
-          const methodColor = methodColors[row.httpMethod] || t.text.disabled;
-          const isSlow = row.p95Ms > 2000;
-
-          return (
-            <Box
-              key={`${row.httpMethod}-${row.httpPath}-${index}`}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                px: 2.5,
-                py: 1.25,
-                borderBottom: `1px solid ${t.border.subtle}`,
-                transition: 'background 0.15s',
-                '&:hover': { bgcolor: t.bg.cardHover },
-                '&:last-child': { borderBottom: 'none' },
-              }}
-            >
-              <Box
-                sx={{
-                  width: 36,
-                  textAlign: 'center',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  color: t.text.disabled,
-                }}
-              >
-                {row.rank}
-              </Box>
-
-              <Box sx={{ width: 60 }}>
-                <Box
-                  component="span"
-                  sx={{
-                    fontSize: '0.65rem',
-                    fontWeight: 700,
-                    color: methodColor,
-                    px: 0.75,
-                    py: 0.25,
-                    borderRadius: t.radiusSm,
-                    border: `1px solid ${methodColor}`,
-                    opacity: 0.9,
-                  }}
-                >
-                  {row.httpMethod}
-                </Box>
-              </Box>
-
-              <Box
-                sx={{
-                  flex: 1,
-                  fontSize: '0.775rem',
-                  color: t.text.primary,
-                  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  pr: 1,
-                }}
-              >
-                {row.httpPath}
-              </Box>
-
-              <Box
-                sx={{
-                  width: 70,
-                  textAlign: 'right',
-                  fontSize: '0.8rem',
-                  fontVariantNumeric: 'tabular-nums',
-                  fontWeight: isSlow ? 600 : 400,
-                  color: isSlow ? t.status.error : row.p95Ms > 1000 ? t.status.warning : t.text.secondary,
-                }}
-              >
-                {fNumber(row.p95Ms)}
-                <Box component="span" sx={{ fontSize: '0.65rem', color: t.text.disabled, ml: 0.25 }}>ms</Box>
-              </Box>
-
-              <Box
-                sx={{
-                  width: 70,
-                  textAlign: 'right',
-                  fontSize: '0.8rem',
-                  color: t.text.secondary,
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {fNumber(row.avgMs)}
-                <Box component="span" sx={{ fontSize: '0.65rem', color: t.text.disabled, ml: 0.25 }}>ms</Box>
-              </Box>
-
-              <Box
-                sx={{
-                  width: 80,
-                  textAlign: 'right',
-                  fontSize: '0.8rem',
-                  color: t.text.secondary,
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {fNumber(row.requestCount)}
-              </Box>
-            </Box>
-          );
-        })}
+            },
+          }}
+          localeText={{ noRowsLabel: '데이터가 없습니다' }}
+        />
       </Box>
     </Box>
   );
