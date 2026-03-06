@@ -1,0 +1,141 @@
+sources:
+  app_log:
+    type: file
+    include:
+      - /var/log/apps/*/app.log
+    read_from: beginning
+
+transforms:
+  # 1단계: 멀티라인 집계 (스택트레이스 등)
+  multiline:
+    type: reduce
+    inputs:
+      - app_log
+    group_by:
+      - file
+    starts_when: >-
+      match(string!(.message), r'^[0-9]{4}-[0-9]{2}-[0-9]{2}[\sT][0-9]{2}:[0-9]{2}:[0-9]{2}')
+      || match(string!(.message), r'^\{')
+    merge_strategies:
+      message: concat
+    expire_after_ms: 2000
+
+  # 2단계: 구조화 파싱 (JSON 우선, 실패시 텍스트 regex)
+  parse_and_enrich:
+    type: remap
+    inputs:
+      - multiline
+    source: |-
+      raw = string!(.message)
+
+      .host = get_hostname() ?? "unknown-host"
+      # 파일 경로에서 서비스명 추출: /var/log/apps/dicube-system/app.log → dicube-system
+      file_path = string(.file) ?? ""
+      parts = split(file_path, "/")
+      .service = if length(parts) >= 5 { parts[4] } else { get_env_var("SERVICE_NAME") ?? "unknown-app" }
+      .env = get_env_var("ENV") ?? "local"
+      now_ts = now()
+      .ingest_time = format_timestamp!(now_ts, format: "%Y-%m-%d %H:%M:%S%.3f", timezone: "UTC")
+      .ingest_time_utc = format_timestamp!(now_ts, format: "%Y-%m-%d %H:%M:%S%.3f", timezone: "UTC")
+      .raw_event = raw
+
+      # 기본값
+      .level = "UNKNOWN"
+      .logger = ""
+      .thread = ""
+      .message = raw
+      .http_method = ""
+      .http_path = ""
+      .http_status = 0
+      .response_time_ms = 0
+      .exception_class = ""
+      .stack_trace = ""
+
+      # === 경로 1: JSON 구조화 로그 시도 ===
+      parsed_json, err_json = parse_json(raw)
+      if err_json == null {
+        .level = upcase(string(parsed_json.level) ?? "UNKNOWN")
+        .logger = string(parsed_json.logger_name) ?? string(parsed_json.logger) ?? ""
+        .thread = string(parsed_json.thread_name) ?? string(parsed_json.thread) ?? ""
+        .message = string(parsed_json.message) ?? raw
+
+        .http_method = upcase(string(parsed_json.http_method) ?? "")
+        .http_path = string(parsed_json.http_path) ?? ""
+        .http_status = to_int(parsed_json.http_status) ?? 0
+        .response_time_ms = to_int(parsed_json.response_time_ms) ?? 0
+
+        .exception_class = string(parsed_json.stack_trace_class) ?? string(parsed_json.exception_class) ?? ""
+        .stack_trace = string(parsed_json.stack_trace) ?? ""
+
+        # exception_class가 없지만 stack_trace가 있으면 클래스명 추출
+        if .exception_class == "" && .stack_trace != "" {
+          exc_from_trace, err_t = parse_regex(.stack_trace, r'(?P<exc_class>[a-zA-Z_$$][a-zA-Z0-9_$$.]*(?:Exception|Error))')
+          if err_t == null {
+            .exception_class = exc_from_trace.exc_class
+          }
+        }
+      } else {
+        # === 경로 2: Spring Boot 기본 텍스트 포맷 파싱 ===
+        # 형식: "2026-02-26 04:29:55.123  INFO 12345 --- [thread] logger : message"
+        spring_parsed, err_spring = parse_regex(raw, r'^(?P<ts>\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}\.\d{3})\s+(?P<level>\w+)\s+\d+\s+---\s+\[(?P<thread>[^\]]*)\]\s+(?P<logger>\S+)\s+:\s+(?P<msg>.*)')
+        if err_spring == null {
+          .level = upcase!(spring_parsed.level)
+          .thread = strip_whitespace!(spring_parsed.thread)
+          .logger = spring_parsed.logger
+          .message = spring_parsed.msg
+
+          # HTTP 요청 패턴 추출 시도: "GET /api/users 200 45ms" 또는 유사 패턴
+          http_parsed, err_http = parse_regex(to_string(spring_parsed.msg), r'(?P<method>GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s+(?P<path>\S+)\s+(?P<status>\d{3})\s+(?P<duration>\d+)')
+          if err_http == null {
+            .http_method = http_parsed.method
+            .http_path = http_parsed.path
+            .http_status = to_int!(http_parsed.status)
+            .response_time_ms = to_int!(http_parsed.duration)
+          }
+
+          # 예외 클래스 추출 시도
+          exc_parsed, err_exc = parse_regex(raw, r'(?P<exc_class>[a-zA-Z_$$][a-zA-Z0-9_$$.]*Exception)')
+          if err_exc == null {
+            .exception_class = exc_parsed.exc_class
+            if contains(raw, "\n") {
+              .stack_trace = raw
+            }
+          }
+        } else {
+          # === 경로 3: 기타 포맷 - 레벨만이라도 추출 ===
+          level_parsed, err_level = parse_regex(raw, r'(?i)\b(?P<level>FATAL|ERROR|WARN|INFO|DEBUG|TRACE)\b')
+          if err_level == null {
+            .level = upcase!(level_parsed.level)
+          }
+        }
+      }
+
+      del(.file)
+      del(.source_type)
+      del(.timestamp)
+      del(.timestamp_end)
+
+sinks:
+  # 기존 비정형 파이프라인 (하위 호환)
+  kafka_raw:
+    type: kafka
+    inputs:
+      - parse_and_enrich
+    bootstrap_servers: kafka:9092
+    topic: logs.raw
+    encoding:
+      codec: json
+    acknowledgements:
+      enabled: true
+
+  # 신규 정규화 파이프라인
+  kafka_app:
+    type: kafka
+    inputs:
+      - parse_and_enrich
+    bootstrap_servers: kafka:9092
+    topic: logs.app
+    encoding:
+      codec: json
+    acknowledgements:
+      enabled: true

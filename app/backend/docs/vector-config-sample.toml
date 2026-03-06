@@ -1,0 +1,56 @@
+# ============================================================
+# Vector 설정 샘플 - Lighthouse 연동용
+# 대상 앱의 JSON 로그를 파싱하여 Kafka로 전송
+# ============================================================
+
+# --- Source: 대상 앱 로그 파일 수집 ---
+[sources.app_logs]
+type = "file"
+include = ["/var/log/myapp/*.log"]
+read_from = "end"
+
+# --- Transform: JSON 파싱 + 필드 매핑 ---
+[transforms.parse_json]
+type = "remap"
+inputs = ["app_logs"]
+source = '''
+  . = parse_json!(.message)
+
+  .ingest_time = now()
+  .ingest_time_utc = format_timestamp!(now(), format: "%Y-%m-%d %H:%M:%S%.3f")
+
+  .host = get_hostname!()
+  .service = .service || get_env_var("SERVICE_NAME") ?? "unknown"
+  .env = get_env_var("ENV") ?? "dev"
+
+  # 로그 필드 매핑 (Logstash JSON 포맷 기준)
+  .level = upcase(string!(.level)) || "UNKNOWN"
+  .logger = .logger_name || ""
+  .thread = .thread_name || ""
+  .message = .message || ""
+
+  # HTTP 필드 (MDC에서 가져옴)
+  .http_method = .http_method || ""
+  .http_path = .http_path || ""
+  .http_status = to_int(.http_status) ?? 0
+  .response_time_ms = to_int(.response_time_ms) ?? 0
+
+  # 에러 필드
+  .exception_class = .stack_trace_class || ""
+  .stack_trace = .stack_trace || ""
+
+  # 원본 보존
+  .raw_event = encode_json(.)
+'''
+
+# --- Sink: Kafka로 전송 ---
+[sinks.kafka_app_logs]
+type = "kafka"
+inputs = ["parse_json"]
+bootstrap_servers = "kafka:9092"
+topic = "logs.app"
+encoding.codec = "json"
+compression = "lz4"
+
+# key 설정 (ClickHouse 파티셔닝 최적화)
+key_field = "service"

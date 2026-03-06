@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.app.lighthouse.infra.oracle.UserMapper">
+
+    <!--
+        Java Record는 불변 객체이므로 setter 방식이 아닌 생성자 방식으로 매핑.
+        column="user_id"  → 생성자 파라미터 name="userId"로 명시적 바인딩.
+    -->
+    <resultMap id="userResultMap" type="com.app.lighthouse.infra.oracle.UserRecord">
+        <constructor>
+            <idArg column="user_id"  javaType="java.lang.Long"   name="userId"/>
+            <arg   column="username" javaType="java.lang.String"  name="username"/>
+            <arg   column="password" javaType="java.lang.String"  name="password"/>
+            <arg   column="role"     javaType="java.lang.String"  name="role"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findByUsername" resultMap="userResultMap">
+        SELECT user_id, username, password, role
+        FROM lh_user
+        WHERE username = #{username}
+    </select>
+
+    <insert id="insertUser">
+        INSERT INTO lh_user (username, password, role)
+        VALUES (#{username}, #{password}, #{role})
+    </insert>
+
+</mapper>
