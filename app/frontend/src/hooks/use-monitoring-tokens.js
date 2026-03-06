@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useColorScheme } from '@mui/material/styles';
 
-import { getTokens } from 'src/sections/overview-v2/v2-tokens';
+import { getTokens } from './monitoring-tokens';
 
 // ----------------------------------------------------------------------
 

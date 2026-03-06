@@ -146,6 +146,3 @@ const lightTokens = {
 export function getTokens(mode) {
   return mode === 'dark' ? darkTokens : lightTokens;
 }
-
-/** @deprecated — use getTokens(mode) or useMonitoringTokens() hook instead */
-export const v2 = darkTokens;
