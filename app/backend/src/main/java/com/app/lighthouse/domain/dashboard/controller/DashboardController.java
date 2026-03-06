@@ -9,14 +9,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.app.lighthouse.domain.dashboard.dto.ApiDetailDto;
-import com.app.lighthouse.domain.dashboard.dto.ApiRankingDto;
-import com.app.lighthouse.domain.dashboard.dto.DashboardSummaryDto;
-import com.app.lighthouse.domain.dashboard.dto.ErrorTrendDto;
-import com.app.lighthouse.domain.dashboard.dto.LogLevelDistributionDto;
-import com.app.lighthouse.domain.dashboard.dto.LogVolumeDto;
-import com.app.lighthouse.domain.dashboard.dto.RecentErrorDto;
-import com.app.lighthouse.domain.dashboard.dto.ServerStatusDto;
+import com.app.lighthouse.domain.dashboard.dto.ErrorLogDto;
+import com.app.lighthouse.domain.dashboard.dto.OverviewSummaryDto;
+import com.app.lighthouse.domain.dashboard.dto.RequestVolumeDto;
+import com.app.lighthouse.domain.dashboard.dto.ResponseTimeDto;
+import com.app.lighthouse.domain.dashboard.dto.SlowApiDto;
 import com.app.lighthouse.domain.dashboard.service.DashboardService;
 import com.app.lighthouse.global.response.ApiResponse;
 
@@ -30,72 +27,41 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping("/summary")
-    public ApiResponse<DashboardSummaryDto> getSummary(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+    public ApiResponse<OverviewSummaryDto> getSummary(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
         return ApiResponse.ok(dashboardService.getSummary(from, to));
     }
 
-    @GetMapping("/log-volume")
-    public ApiResponse<LogVolumeDto> getLogVolume(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam(required = false) String interval,
-            @RequestParam(required = false) String service,
-            @RequestParam(required = false) String env) {
-        return ApiResponse.ok(dashboardService.getLogVolume(from, to, interval, service, env));
+    @GetMapping("/request-volume")
+    public ApiResponse<List<RequestVolumeDto>> getRequestVolume(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam int intervalMin) {
+        return ApiResponse.ok(dashboardService.getRequestVolume(from, to, intervalMin));
     }
 
-    @GetMapping("/log-level-distribution")
-    public ApiResponse<LogLevelDistributionDto> getLogLevelDistribution(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam(required = false) String service,
-            @RequestParam(required = false) String env) {
-        return ApiResponse.ok(dashboardService.getLogLevelDistribution(from, to, service, env));
+    @GetMapping("/response-time")
+    public ApiResponse<List<ResponseTimeDto>> getResponseTime(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam int intervalMin) {
+        return ApiResponse.ok(dashboardService.getResponseTime(from, to, intervalMin));
     }
 
-    @GetMapping("/server-status")
-    public ApiResponse<List<ServerStatusDto>> getServerStatus(
-            @RequestParam(defaultValue = "30") int recentMinutes) {
-        return ApiResponse.ok(dashboardService.getServerStatuses(recentMinutes));
+    @GetMapping("/slow-apis")
+    public ApiResponse<List<SlowApiDto>> getSlowApis(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(defaultValue = "10") int limit) {
+        return ApiResponse.ok(dashboardService.getSlowApis(from, to, limit));
     }
 
-    @GetMapping("/error-trend")
-    public ApiResponse<ErrorTrendDto> getErrorTrend(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam(required = false) String interval,
-            @RequestParam(required = false) String service) {
-        return ApiResponse.ok(dashboardService.getErrorTrend(from, to, interval, service));
-    }
-
-    @GetMapping("/api-ranking")
-    public ApiResponse<ApiRankingDto> getApiRanking(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam(required = false) String service,
-            @RequestParam(defaultValue = "count") String sortBy,
+    @GetMapping("/error-logs")
+    public ApiResponse<List<ErrorLogDto>> getErrorLogs(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(defaultValue = "20") int limit) {
-        return ApiResponse.ok(dashboardService.getApiRanking(from, to, service, sortBy, limit));
-    }
-
-    @GetMapping("/api-detail")
-    public ApiResponse<ApiDetailDto> getApiDetail(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam String httpMethod,
-            @RequestParam String httpPath,
-            @RequestParam(required = false) String interval) {
-        return ApiResponse.ok(dashboardService.getApiDetail(from, to, httpMethod, httpPath, interval));
-    }
-
-    @GetMapping("/recent-errors")
-    public ApiResponse<RecentErrorDto> getRecentErrors(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam(required = false) String service,
-            @RequestParam(defaultValue = "50") int limit) {
-        return ApiResponse.ok(dashboardService.getRecentErrors(from, to, service, limit));
+        return ApiResponse.ok(dashboardService.getErrorLogs(from, to, limit));
     }
 }
