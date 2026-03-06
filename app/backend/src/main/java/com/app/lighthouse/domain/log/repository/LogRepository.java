@@ -19,8 +19,11 @@ import com.app.lighthouse.domain.log.repository.row.ApiDetailRow;
 import com.app.lighthouse.domain.log.repository.row.ApiRankingRow;
 import com.app.lighthouse.domain.log.repository.row.AppStatsRow;
 import com.app.lighthouse.domain.log.repository.row.ErrorGroupRow;
+import com.app.lighthouse.domain.log.repository.row.ErrorLogRow;
 import com.app.lighthouse.domain.log.repository.row.ErrorTrendRow;
 import com.app.lighthouse.domain.log.repository.row.LevelCountRow;
+import com.app.lighthouse.domain.log.repository.row.RequestVolumeRow;
+import com.app.lighthouse.domain.log.repository.row.ResponseTimeRow;
 import com.app.lighthouse.domain.log.repository.row.ServerStatusRow;
 import com.app.lighthouse.domain.log.repository.row.ServiceSummaryRow;
 import com.app.lighthouse.domain.log.repository.row.TimelineRow;
@@ -127,6 +130,96 @@ public class LogRepository {
                 " WHERE timestamp >= ? AND timestamp < ? AND response_time_ms > 0";
         Double val = jdbc.queryForObject(sql, Double.class, from, to);
         return val != null ? Math.round(val * 100.0) / 100.0 : 0.0;
+    }
+
+    // ========== Overview: 에러 건수 (HTTP 4xx+5xx) ==========
+
+    public long getHttpErrorCount(LocalDateTime from, LocalDateTime to) {
+        String sql = "SELECT count() FROM " + TABLE +
+                " WHERE timestamp >= ? AND timestamp < ? AND http_status >= 400";
+        Long count = jdbc.queryForObject(sql, Long.class, from, to);
+        return count != null ? count : 0L;
+    }
+
+    // ========== Overview: 시간대별 요청량 ==========
+
+    public List<RequestVolumeRow> getRequestVolume(LocalDateTime from, LocalDateTime to, String interval) {
+        String sql = "SELECT toStartOfInterval(timestamp, INTERVAL " + interval + ") AS time_bucket," +
+                " count() AS request_count" +
+                " FROM " + TABLE +
+                " WHERE timestamp >= ? AND timestamp < ? AND http_method != ''" +
+                " GROUP BY time_bucket ORDER BY time_bucket ASC";
+
+        return jdbc.query(sql,
+                (rs, rowNum) -> new RequestVolumeRow(
+                        toSafeLocalDateTime(rs.getTimestamp("time_bucket")),
+                        rs.getLong("request_count")
+                ),
+                from, to);
+    }
+
+    // ========== Overview: 시간대별 응답 시간 P95/P99 ==========
+
+    public List<ResponseTimeRow> getResponseTimeTrend(LocalDateTime from, LocalDateTime to, String interval) {
+        String sql = "SELECT toStartOfInterval(timestamp, INTERVAL " + interval + ") AS time_bucket," +
+                " quantile(0.95)(response_time_ms) AS p95_ms," +
+                " quantile(0.99)(response_time_ms) AS p99_ms" +
+                " FROM " + TABLE +
+                " WHERE timestamp >= ? AND timestamp < ? AND response_time_ms > 0" +
+                " GROUP BY time_bucket ORDER BY time_bucket ASC";
+
+        return jdbc.query(sql,
+                (rs, rowNum) -> new ResponseTimeRow(
+                        toSafeLocalDateTime(rs.getTimestamp("time_bucket")),
+                        roundTwo(rs.getDouble("p95_ms")),
+                        roundTwo(rs.getDouble("p99_ms"))
+                ),
+                from, to);
+    }
+
+    // ========== Overview: Slow API (P95 내림차순) ==========
+
+    public List<ApiRankingRow> getSlowApis(LocalDateTime from, LocalDateTime to, int limit) {
+        String sql = "SELECT http_method, http_path," +
+                " count() AS request_count," +
+                " avg(response_time_ms) AS avg_ms," +
+                " quantile(0.95)(response_time_ms) AS p95_ms," +
+                " countIf(http_status >= 500) AS error_count" +
+                " FROM " + TABLE +
+                " WHERE timestamp >= ? AND timestamp < ? AND http_method != '' AND response_time_ms > 0" +
+                " GROUP BY http_method, http_path" +
+                " ORDER BY p95_ms DESC LIMIT ?";
+
+        return jdbc.query(sql,
+                (rs, rowNum) -> new ApiRankingRow(
+                        rs.getString("http_method"),
+                        rs.getString("http_path"),
+                        rs.getLong("request_count"),
+                        roundTwo(rs.getDouble("avg_ms")),
+                        roundTwo(rs.getDouble("p95_ms")),
+                        rs.getLong("error_count")
+                ),
+                from, to, limit);
+    }
+
+    // ========== Overview: HTTP 에러 로그 (4xx/5xx) ==========
+
+    public List<ErrorLogRow> getHttpErrorLogs(LocalDateTime from, LocalDateTime to, int limit) {
+        String sql = "SELECT timestamp, http_method, http_path, http_status, service, message" +
+                " FROM " + TABLE +
+                " WHERE timestamp >= ? AND timestamp < ? AND http_status >= 400" +
+                " ORDER BY timestamp DESC LIMIT ?";
+
+        return jdbc.query(sql,
+                (rs, rowNum) -> new ErrorLogRow(
+                        toSafeLocalDateTime(rs.getTimestamp("timestamp")),
+                        rs.getString("http_method"),
+                        rs.getString("http_path"),
+                        rs.getInt("http_status"),
+                        rs.getString("service"),
+                        rs.getString("message")
+                ),
+                from, to, limit);
     }
 
     // ========== 대시보드: 로그 레벨 분포 ==========
