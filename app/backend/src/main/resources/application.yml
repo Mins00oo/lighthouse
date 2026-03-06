@@ -1,13 +1,12 @@
 spring:
   application:
     name: Lighthouse_BE
+  profiles:
+    include: secrets
 
   # Oracle DataSource (Primary - 앱 메타데이터)
   datasource:
     hikari:
-      jdbc-url: jdbc:oracle:thin:@${ORACLE_HOST:localhost}:${ORACLE_PORT:1521}/${ORACLE_SID:FREEPDB1}
-      username: ${ORACLE_USERNAME:lighthouse}
-      password: ${ORACLE_PASSWORD:lighthousepass}
       driver-class-name: oracle.jdbc.OracleDriver
       pool-name: oracle-pool
       minimum-idle: 2
@@ -16,34 +15,43 @@ spring:
 clickhouse:
   datasource:
     hikari:
-      jdbc-url: jdbc:ch://${CLICKHOUSE_HOST:localhost}:${CLICKHOUSE_PORT:8123}/lighthouse
-      username: ${CLICKHOUSE_USERNAME:lighthouse}
-      password: ${CLICKHOUSE_PASSWORD:chpass}
       driver-class-name: com.clickhouse.jdbc.ClickHouseDriver
       pool-name: clickhouse-pool
       minimum-idle: 2
 
 app:
-  cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://100.100.100.156:3030,http://localhost:3030}
   init-admin:
     enabled: ${INIT_ADMIN_ENABLED:true}
-    username: ${INIT_ADMIN_USERNAME:admin}
-    password: ${INIT_ADMIN_PASSWORD:!@#admina}
-  jwt:
-    secret: ${JWT_SECRET:lighthouse-default-secret-key-must-be-at-least-256-bits-long-for-hs256}
-    access-token-expiration: ${JWT_ACCESS_EXPIRATION:3600000}
-    refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
 websocket:
   endpoint: /ws
-  allowed-origins: ${WS_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:3030}
 
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+lighthouse:
+  alert:
+    enabled: ${ALERT_ENABLED:false}
+    check-interval-ms: ${ALERT_CHECK_INTERVAL_MS:600000}
+    cooldown-ms: ${ALERT_COOLDOWN_MS:600000}
+    slack:
+      channel: ${SLACK_CHANNEL:#lighthouse-alerts}
+    rules:
+      error-rate:
+        enabled: true
+        threshold-multiplier: 3.0
+        min-request-count: 50
+        fallback-absolute-rate: 0.05
+      response-time:
+        enabled: true
+        p95-threshold-ms: 3000
+        min-request-count: 50
+      api-failure:
+        enabled: true
+        consecutive-count: 5
 
 logging:
   level:
