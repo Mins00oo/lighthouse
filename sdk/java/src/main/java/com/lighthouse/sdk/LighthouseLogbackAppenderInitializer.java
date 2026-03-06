@@ -13,8 +13,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.core.env.Environment;
 
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.nio.file.Path;
+import java.util.Properties;
 
 public class LighthouseLogbackAppenderInitializer implements SmartLifecycle {
 
@@ -37,9 +39,9 @@ public class LighthouseLogbackAppenderInitializer implements SmartLifecycle {
         }
 
         LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
-        Logger rootLogger = context.getLogger(Logger.ROOT_LOGGER_NAME);
+        Logger accessLogger = context.getLogger("lighthouse_access");
 
-        if (rootLogger.getAppender(APPENDER_NAME) != null) {
+        if (accessLogger.getAppender(APPENDER_NAME) != null) {
             running = true;
             return;
         }
@@ -75,7 +77,7 @@ public class LighthouseLogbackAppenderInitializer implements SmartLifecycle {
         encoder.start();
 
         // Rolling file appender
-        String logDir = properties.getLogDir();
+        String logDir = resolveLogDir();
         String fileName = properties.getFileName();
         Path logFile = Path.of(logDir, serviceName, fileName);
         String baseNameNoExt = fileName.replaceAll("\\.log$", "");
@@ -101,7 +103,10 @@ public class LighthouseLogbackAppenderInitializer implements SmartLifecycle {
         appender.setRollingPolicy(rollingPolicy);
         appender.start();
 
-        rootLogger.addAppender(appender);
+        accessLogger.setAdditive(false);
+        accessLogger.addAppender(appender);
+        context.getLogger(LighthouseLogbackAppenderInitializer.class.getName())
+                .info("[Lighthouse SDK] Log file: {}", logFile);
         running = true;
     }
 
@@ -130,6 +135,34 @@ public class LighthouseLogbackAppenderInitializer implements SmartLifecycle {
         }
 
         return "unknown-app";
+    }
+
+    private String resolveLogDir() {
+        // 1) lighthouse.logging.log-dir 명시 설정 (대상 앱 application.yml)
+        String dir = properties.getLogDir();
+        if (dir != null && !dir.isBlank()) {
+            return dir;
+        }
+
+        // 2) sdk.properties (classpath)
+        dir = loadFromSdkProperties("log.dir");
+        if (dir != null && !dir.isBlank()) {
+            return dir;
+        }
+
+        return "/var/log/apps";
+    }
+
+    private String loadFromSdkProperties(String key) {
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream("sdk.properties")) {
+            if (is != null) {
+                Properties props = new Properties();
+                props.load(is);
+                return props.getProperty(key);
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     private String resolveHostname() {

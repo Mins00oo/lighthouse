@@ -9,7 +9,7 @@ public class LighthouseLoggingProperties {
 
     private String serviceName;
 
-    private String logDir = "/var/log/lighthouse";
+    private String logDir;
 
     private String fileName = "app.log";
 
