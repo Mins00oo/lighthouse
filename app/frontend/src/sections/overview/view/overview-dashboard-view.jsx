@@ -3,6 +3,9 @@ import { useMemo, useState, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 
+import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
+
 import { useMonitoringTokens } from 'src/hooks/use-monitoring-tokens';
 
 import { toKSTString } from 'src/utils/format-time';
@@ -54,8 +57,18 @@ export function OverviewDashboardView() {
     setTimeRange(range);
   }, []);
 
+  const router = useRouter();
+
   const { from, to } = timeRange;
   const interval = deriveInterval(timeRange.label);
+
+  const handleChartRangeSelect = useCallback(
+    (rangeFrom, rangeTo) => {
+      const params = new URLSearchParams({ from: rangeFrom, to: rangeTo });
+      router.push(`${paths.dashboard.logs.root}?${params.toString()}`);
+    },
+    [router]
+  );
 
   // --- SWR Hooks ---
   const { summary, summaryLoading } = useGetOverviewSummary(from, to);
@@ -112,7 +125,7 @@ export function OverviewDashboardView() {
       {/* Charts */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12, lg: 6 }}>
-          <OverviewRequestVolumeChart chart={requestVolumeChart} />
+          <OverviewRequestVolumeChart chart={requestVolumeChart} onRangeSelect={handleChartRangeSelect} />
         </Grid>
         <Grid size={{ xs: 12, lg: 6 }}>
           <OverviewResponseTimeChart chart={responseTimeChart} />
@@ -145,12 +158,13 @@ function formatTime(isoString) {
 
 function buildRequestVolumeChart(data) {
   if (!data || !data.length) {
-    return { categories: [], series: [] };
+    return { categories: [], series: [], rawTimes: [] };
   }
 
   return {
     categories: data.map((item) => formatTime(item.time)),
     series: [{ name: '요청 수', data: data.map((item) => item.requestCount ?? 0) }],
+    rawTimes: data.map((item) => item.time),
   };
 }
 

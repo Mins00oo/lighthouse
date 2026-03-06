@@ -56,6 +56,8 @@ export const errorLogsSchema = z.array(
     httpStatus: z.number(),
     serviceName: z.string(),
     message: z.string().nullable().default(''),
+    exceptionClass: z.string().nullable().optional(),
+    stackTrace: z.string().nullable().optional(),
     traceId: z.string().nullable().optional(),
   })
 );

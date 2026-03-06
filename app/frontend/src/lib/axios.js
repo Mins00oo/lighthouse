@@ -78,4 +78,7 @@ export const endpoints = {
     slowApis: '/api/dashboard/slow-apis',
     errorLogs: '/api/dashboard/error-logs',
   },
+  logs: {
+    search: '/api/logs',
+  },
 };

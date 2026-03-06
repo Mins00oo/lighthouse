@@ -221,8 +221,13 @@ function ErrorDetailDrawer({ log, onClose }) {
     { label: 'Endpoint', value: log.httpPath, mono: true },
     { label: 'Service', value: log.serviceName },
     ...(log.traceId ? [{ label: 'Trace ID', value: log.traceId, mono: true }] : []),
+    ...(log.exceptionClass
+      ? [{ label: 'Exception Class', value: log.exceptionClass, mono: true }]
+      : []),
     { label: 'Message', value: log.message, mono: true, full: true },
   ];
+
+  const hasStackTrace = !!log.stackTrace;
 
   return (
     <Drawer
@@ -295,6 +300,41 @@ function ErrorDetailDrawer({ log, onClose }) {
             </Box>
           </Box>
         ))}
+
+        {hasStackTrace && (
+          <Box>
+            <Box
+              sx={{
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                color: t.text.disabled,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                mb: 0.5,
+              }}
+            >
+              Stack Trace
+            </Box>
+            <Box
+              sx={{
+                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                fontSize: '0.75rem',
+                lineHeight: 1.6,
+                color: t.status.error,
+                bgcolor: t.bg.input,
+                p: 1.5,
+                borderRadius: t.radiusSm,
+                border: `1px solid ${t.border.subtle}`,
+                maxHeight: 300,
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+              }}
+            >
+              {log.stackTrace}
+            </Box>
+          </Box>
+        )}
       </Box>
     </Drawer>
   );
