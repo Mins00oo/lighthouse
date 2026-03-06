@@ -277,7 +277,7 @@ public class DashboardService {
 
         List<RecentErrorDto.ErrorEntry> errorEntries = recentLogs.stream()
                 .map(e -> RecentErrorDto.ErrorEntry.builder()
-                        .ingestTime(e.getIngestTime())
+                        .timestamp(e.getTimestamp())
                         .host(e.getHost())
                         .service(e.getService())
                         .level(e.getLevel())

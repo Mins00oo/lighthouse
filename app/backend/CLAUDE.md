@@ -57,7 +57,7 @@ Lighthouse_BE는 **로그 모니터링 플랫폼 백엔드**입니다. Spring Bo
 - Oracle(Primary): 사용자(lh_user), 애플리케이션 레지스트리(lh_application)
 	- 접근: infra/oracle/의 MyBatis mapper
 	- 마이그레이션: Flyway (resources/db/migration/)
-- ClickHouse(Secondary): 로그 저장(logs_raw, app_logs) + Kafka 엔진 테이블로 ingest
+- ClickHouse(Secondary): 로그 저장(app_logs) + Kafka 엔진 테이블로 ingest
 	- 접근: domain/log/repository/에서 @Qualifier("clickHouseJdbcTemplate") JdbcTemplate 사용
 	- 마이그레이션: Flyway 미지원 → 커스텀 ClickHouseMigrationRunner + 스크립트(resources/db/clickhouse/)
 두 데이터소스 모두 HikariCP 사용. Oracle SqlSessionFactory는 Flyway 완료 후 생성되며, ClickHouse JdbcTemplate은 custom migration runner 완료 후 사용되도록 구성되어 있다.

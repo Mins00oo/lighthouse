@@ -41,7 +41,7 @@ public class LogRepository {
 
     public List<LogEntryDto> searchLogs(LogSearchRequest request) {
         StringBuilder sql = new StringBuilder(
-                "SELECT ingest_time, host, service, env, level, logger, thread, message," +
+                "SELECT timestamp, host, service, env, level, logger, thread, message," +
                 " http_method, http_path, http_status, response_time_ms," +
                 " exception_class, stack_trace, raw_event" +
                 " FROM " + TABLE + " WHERE 1=1");
@@ -49,7 +49,7 @@ public class LogRepository {
         List<Object> params = new ArrayList<>();
         appendSearchConditions(sql, params, request);
 
-        sql.append(" ORDER BY ingest_time DESC LIMIT ? OFFSET ?");
+        sql.append(" ORDER BY timestamp DESC LIMIT ? OFFSET ?");
         params.add(request.getSize());
         params.add(request.getPage() * request.getSize());
 
@@ -70,61 +70,61 @@ public class LogRepository {
     // ========== 대시보드: Overview ==========
 
     public long getTotalLogCount(LocalDateTime from, LocalDateTime to) {
-        String sql = "SELECT count() FROM " + TABLE + " WHERE ingest_time >= ? AND ingest_time < ?";
+        String sql = "SELECT count() FROM " + TABLE + " WHERE timestamp >= ? AND timestamp < ?";
         Long count = jdbc.queryForObject(sql, Long.class, from, to);
         return count != null ? count : 0L;
     }
 
     public long getErrorLogCount(LocalDateTime from, LocalDateTime to) {
         String sql = "SELECT count() FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND level = 'ERROR'";
+                " WHERE timestamp >= ? AND timestamp < ? AND level = 'ERROR'";
         Long count = jdbc.queryForObject(sql, Long.class, from, to);
         return count != null ? count : 0L;
     }
 
     public long getFatalLogCount(LocalDateTime from, LocalDateTime to) {
         String sql = "SELECT count() FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND level = 'FATAL'";
+                " WHERE timestamp >= ? AND timestamp < ? AND level = 'FATAL'";
         Long count = jdbc.queryForObject(sql, Long.class, from, to);
         return count != null ? count : 0L;
     }
 
     public long getWarnLogCount(LocalDateTime from, LocalDateTime to) {
         String sql = "SELECT count() FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND level = 'WARN'";
+                " WHERE timestamp >= ? AND timestamp < ? AND level = 'WARN'";
         Long count = jdbc.queryForObject(sql, Long.class, from, to);
         return count != null ? count : 0L;
     }
 
     public int getActiveServerCount(LocalDateTime since) {
-        String sql = "SELECT uniq(host) FROM " + TABLE + " WHERE ingest_time >= ?";
+        String sql = "SELECT uniq(host) FROM " + TABLE + " WHERE timestamp >= ?";
         Integer count = jdbc.queryForObject(sql, Integer.class, since);
         return count != null ? count : 0;
     }
 
     public int getServiceCount(LocalDateTime since) {
-        String sql = "SELECT uniq(service) FROM " + TABLE + " WHERE ingest_time >= ?";
+        String sql = "SELECT uniq(service) FROM " + TABLE + " WHERE timestamp >= ?";
         Integer count = jdbc.queryForObject(sql, Integer.class, since);
         return count != null ? count : 0;
     }
 
     public long getRequestCount(LocalDateTime from, LocalDateTime to) {
         String sql = "SELECT count() FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND http_method != ''";
+                " WHERE timestamp >= ? AND timestamp < ? AND http_method != ''";
         Long count = jdbc.queryForObject(sql, Long.class, from, to);
         return count != null ? count : 0L;
     }
 
     public double getAvgResponseTime(LocalDateTime from, LocalDateTime to) {
         String sql = "SELECT avg(response_time_ms) FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND response_time_ms > 0";
+                " WHERE timestamp >= ? AND timestamp < ? AND response_time_ms > 0";
         Double val = jdbc.queryForObject(sql, Double.class, from, to);
         return val != null ? Math.round(val * 100.0) / 100.0 : 0.0;
     }
 
     public double getP95ResponseTime(LocalDateTime from, LocalDateTime to) {
         String sql = "SELECT quantile(0.95)(response_time_ms) FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND response_time_ms > 0";
+                " WHERE timestamp >= ? AND timestamp < ? AND response_time_ms > 0";
         Double val = jdbc.queryForObject(sql, Double.class, from, to);
         return val != null ? Math.round(val * 100.0) / 100.0 : 0.0;
     }
@@ -135,7 +135,7 @@ public class LogRepository {
                                                         String service, String env) {
         StringBuilder sql = new StringBuilder(
                 "SELECT level, count() AS cnt FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ?");
+                " WHERE timestamp >= ? AND timestamp < ?");
 
         List<Object> params = new ArrayList<>();
         params.add(from);
@@ -159,10 +159,10 @@ public class LogRepository {
 
     public List<ServerStatusRow> getServerStatusSummary(LocalDateTime since) {
         String sql = "SELECT host, service, env," +
-                " max(ingest_time) AS last_log_time," +
+                " max(timestamp) AS last_log_time," +
                 " count() AS recent_log_count," +
                 " countIf(level IN ('ERROR', 'FATAL')) AS recent_error_count" +
-                " FROM " + TABLE + " WHERE ingest_time >= ?" +
+                " FROM " + TABLE + " WHERE timestamp >= ?" +
                 " GROUP BY host, service, env ORDER BY last_log_time DESC";
 
         return jdbc.query(sql,
@@ -182,12 +182,12 @@ public class LogRepository {
     public List<TimelineRow> getLogTimeline(LocalDateTime from, LocalDateTime to,
                                              String interval, String service, String env) {
         StringBuilder sql = new StringBuilder(
-                "SELECT toStartOfInterval(ingest_time, INTERVAL " + interval + ") AS time_bucket," +
+                "SELECT toStartOfInterval(timestamp, INTERVAL " + interval + ") AS time_bucket," +
                 " count() AS total_count," +
                 " countIf(level IN ('ERROR', 'FATAL')) AS error_count," +
                 " countIf(level = 'WARN') AS warn_count," +
                 " countIf(level = 'INFO') AS info_count" +
-                " FROM " + TABLE + " WHERE ingest_time >= ? AND ingest_time < ?");
+                " FROM " + TABLE + " WHERE timestamp >= ? AND timestamp < ?");
 
         List<Object> params = new ArrayList<>();
         params.add(from);
@@ -218,7 +218,7 @@ public class LogRepository {
                 " quantile(0.95)(response_time_ms) AS p95_ms," +
                 " countIf(http_status >= 500) AS error_count" +
                 " FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND http_method != ''");
+                " WHERE timestamp >= ? AND timestamp < ? AND http_method != ''");
 
         List<Object> params = new ArrayList<>();
         params.add(from);
@@ -249,13 +249,13 @@ public class LogRepository {
 
     public List<ApiDetailRow> getApiDetail(LocalDateTime from, LocalDateTime to,
                                             String httpMethod, String httpPath, String interval) {
-        String sql = "SELECT toStartOfInterval(ingest_time, INTERVAL " + interval + ") AS time_bucket," +
+        String sql = "SELECT toStartOfInterval(timestamp, INTERVAL " + interval + ") AS time_bucket," +
                 " count() AS request_count," +
                 " avg(response_time_ms) AS avg_ms," +
                 " quantile(0.95)(response_time_ms) AS p95_ms," +
                 " countIf(http_status >= 500) AS error_count" +
                 " FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ?" +
+                " WHERE timestamp >= ? AND timestamp < ?" +
                 " AND http_method = ? AND http_path = ?" +
                 " GROUP BY time_bucket ORDER BY time_bucket ASC";
 
@@ -275,11 +275,11 @@ public class LogRepository {
     public List<ErrorTrendRow> getErrorTrend(LocalDateTime from, LocalDateTime to,
                                               String interval, String service) {
         StringBuilder sql = new StringBuilder(
-                "SELECT toStartOfInterval(ingest_time, INTERVAL " + interval + ") AS time_bucket," +
+                "SELECT toStartOfInterval(timestamp, INTERVAL " + interval + ") AS time_bucket," +
                 " countIf(level = 'ERROR') AS error_count," +
                 " countIf(level = 'FATAL') AS fatal_count" +
                 " FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND level IN ('ERROR', 'FATAL')");
+                " WHERE timestamp >= ? AND timestamp < ? AND level IN ('ERROR', 'FATAL')");
 
         List<Object> params = new ArrayList<>();
         params.add(from);
@@ -302,9 +302,9 @@ public class LogRepository {
                 "SELECT exception_class," +
                 " any(message) AS sample_message," +
                 " count() AS cnt," +
-                " max(ingest_time) AS last_occurrence" +
+                " max(timestamp) AS last_occurrence" +
                 " FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND level IN ('ERROR', 'FATAL')");
+                " WHERE timestamp >= ? AND timestamp < ? AND level IN ('ERROR', 'FATAL')");
 
         List<Object> params = new ArrayList<>();
         params.add(from);
@@ -326,17 +326,17 @@ public class LogRepository {
     public List<LogEntryDto> getRecentErrors(LocalDateTime from, LocalDateTime to,
                                                String service, int limit) {
         StringBuilder sql = new StringBuilder(
-                "SELECT ingest_time, host, service, env, level, logger, thread, message," +
+                "SELECT timestamp, host, service, env, level, logger, thread, message," +
                 " http_method, http_path, http_status, response_time_ms," +
                 " exception_class, stack_trace, raw_event" +
                 " FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND level IN ('ERROR', 'FATAL')");
+                " WHERE timestamp >= ? AND timestamp < ? AND level IN ('ERROR', 'FATAL')");
 
         List<Object> params = new ArrayList<>();
         params.add(from);
         params.add(to);
         appendOptionalFilter(sql, params, "service", service);
-        sql.append(" ORDER BY ingest_time DESC LIMIT ?");
+        sql.append(" ORDER BY timestamp DESC LIMIT ?");
         params.add(limit);
 
         return jdbc.query(sql.toString(), (rs, rowNum) -> mapToLogEntry(rs), params.toArray());
@@ -346,7 +346,7 @@ public class LogRepository {
 
     public List<String> getDistinctServices(LocalDateTime since) {
         String sql = "SELECT DISTINCT service FROM " + TABLE +
-                " WHERE ingest_time >= ? AND service != '' ORDER BY service";
+                " WHERE timestamp >= ? AND service != '' ORDER BY service";
         return jdbc.queryForList(sql, String.class, since);
     }
 
@@ -360,9 +360,9 @@ public class LogRepository {
         String placeholders = serviceNames.stream().map(s -> "?").collect(Collectors.joining(", "));
         String sql = "SELECT service, count() AS log_count," +
                 " countIf(level IN ('ERROR', 'FATAL')) AS error_count," +
-                " max(ingest_time) AS last_log_time" +
+                " max(timestamp) AS last_log_time" +
                 " FROM " + TABLE +
-                " WHERE ingest_time >= ? AND service IN (" + placeholders + ")" +
+                " WHERE timestamp >= ? AND service IN (" + placeholders + ")" +
                 " GROUP BY service";
 
         List<Object> params = new ArrayList<>();
@@ -383,11 +383,11 @@ public class LogRepository {
 
     public List<ServerStatusRow> getServerStatusByService(String serviceName, LocalDateTime since) {
         String sql = "SELECT host, service, env," +
-                " max(ingest_time) AS last_log_time," +
+                " max(timestamp) AS last_log_time," +
                 " count() AS recent_log_count," +
                 " countIf(level IN ('ERROR', 'FATAL')) AS recent_error_count" +
                 " FROM " + TABLE +
-                " WHERE ingest_time >= ? AND service = ?" +
+                " WHERE timestamp >= ? AND service = ?" +
                 " GROUP BY host, service, env ORDER BY last_log_time DESC";
 
         return jdbc.query(sql,
@@ -412,7 +412,7 @@ public class LogRepository {
                 " avg(if(response_time_ms > 0, response_time_ms, null)) AS avg_response_ms," +
                 " quantile(0.95)(if(response_time_ms > 0, response_time_ms, null)) AS p95_response_ms" +
                 " FROM " + TABLE +
-                " WHERE ingest_time >= ? AND ingest_time < ? AND service = ?";
+                " WHERE timestamp >= ? AND timestamp < ? AND service = ?";
 
         return jdbc.queryForObject(sql,
                 (rs, rowNum) -> new AppStatsRow(
@@ -431,11 +431,11 @@ public class LogRepository {
     private void appendSearchConditions(StringBuilder sql, List<Object> params,
                                          LogSearchRequest request) {
         if (request.getFrom() != null) {
-            sql.append(" AND ingest_time >= ?");
+            sql.append(" AND timestamp >= ?");
             params.add(request.getFrom());
         }
         if (request.getTo() != null) {
-            sql.append(" AND ingest_time < ?");
+            sql.append(" AND timestamp < ?");
             params.add(request.getTo());
         }
         if (hasValue(request.getService())) {
@@ -475,7 +475,7 @@ public class LogRepository {
         int responseTime = rs.getInt("response_time_ms");
 
         return LogEntryDto.builder()
-                .ingestTime(toSafeLocalDateTime(rs.getTimestamp("ingest_time")))
+                .timestamp(toSafeLocalDateTime(rs.getTimestamp("timestamp")))
                 .host(rs.getString("host"))
                 .service(rs.getString("service"))
                 .env(rs.getString("env"))

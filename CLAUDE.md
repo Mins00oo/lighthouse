@@ -23,7 +23,7 @@ Lighthouse는 **애플리케이션 로그 모니터링 플랫폼**이다. 분산
 대상 앱들 (SDK 적용 여부 무관)
   → 로그 파일 (/var/log/apps/*/app.log)
   → Vector (파일 감시 → 멀티라인 집계 → JSON/regex 파싱 → 필드 정규화)
-  → Kafka (토픽: logs.raw, logs.app)
+  → Kafka (토픽: logs.app)
   → ClickHouse (Kafka Engine 테이블 + Materialized View 자동 적재)
   → Spring Boot 백엔드 (JdbcTemplate으로 ClickHouse 읽기 전용 조회)
   → React 프론트엔드 (SWR 폴링 + WebSocket STOMP)
@@ -34,7 +34,7 @@ Lighthouse는 **애플리케이션 로그 모니터링 플랫폼**이다. 분산
 ## 이중 DB 설계
 
 - **Oracle** — 사용자 계정(`lh_user`)과 애플리케이션 레지스트리(`lh_application`)의 원장(Source of Truth). MyBatis로 접근. Flyway 마이그레이션(`resources/db/migration/`).
-- **ClickHouse** — 로그 저장(`app_logs`, `logs_raw`) 및 실시간 분석. `@Qualifier("clickHouseJdbcTemplate")` JdbcTemplate으로 접근. 커스텀 `ClickHouseMigrationRunner`로 마이그레이션(`resources/db/clickhouse/`).
+- **ClickHouse** — 로그 저장(`app_logs`) 및 실시간 분석. `@Qualifier("clickHouseJdbcTemplate")` JdbcTemplate으로 접근. 커스텀 `ClickHouseMigrationRunner`로 마이그레이션(`resources/db/clickhouse/`).
 
 **크로스 DB 트랜잭션 금지.** Oracle 쓰기와 ClickHouse 조회를 하나의 트랜잭션 경계 안에 섞지 않는다.
 
@@ -81,14 +81,11 @@ npm run fm:fix           # Prettier 포맷팅
 ```
 대상 앱에서 추가: `implementation 'com.lighthouse:lighthouse-spring-boot-starter:1.0.0'`
 
-## 로그 수집: 두 가지 경로
+## 로그 수집
 
-Vector의 `parse_and_enrich` transform이 두 경로를 모두 처리한다:
+모니터링 대상 앱은 반드시 **Lighthouse SDK**(lighthouse-spring-boot-starter)를 적용해야 한다. SDK의 LogstashEncoder가 구조화 JSON을 한 줄씩 파일로 남기고, Vector가 이를 파싱하여 Kafka로 전송한다. 비정형 텍스트 로그는 처리하지 않는다 (JSON 파싱 실패 시 drop).
 
-1. **경로 1 (JSON — 권장):** 앱이 구조화 JSON을 출력 (SDK 또는 logstash-logback-encoder 사용). 모든 필드 채워짐: level, logger, http_method, http_path, http_status, response_time_ms, exception_class, stack_trace.
-2. **경로 2 (텍스트):** 앱의 기존 로그 포맷 유지. Vector가 regex 파싱 시도 (Spring Boot 기본 포맷 → 일반 레벨 추출). HTTP 필드는 메시지에 패턴이 있을 때만 추출.
-
-두 경로 모두 동일한 `app_logs` ClickHouse 테이블에 적재된다. 누락 필드는 빈 문자열 또는 0으로 기본값 저장.
+Vector의 `enrich` transform은 JSON 필드 매핑, MDC 문자열→정수 변환, 인프라 메타데이터(host, env, ingest_time) 부착만 수행한다.
 
 ## 구현 현황
 

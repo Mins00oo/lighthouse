@@ -25,7 +25,7 @@ public class RecentErrorDto {
     @Getter
     @Builder
     public static class ErrorEntry {
-        private final LocalDateTime ingestTime;
+        private final LocalDateTime timestamp;
         private final String host;
         private final String service;
         private final String level;
