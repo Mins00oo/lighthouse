@@ -60,18 +60,24 @@ Lighthouse_BE는 **로그 모니터링 플랫폼 백엔드**입니다. Spring Bo
 - ClickHouse(Secondary): 로그 저장(app_logs) + Kafka 엔진 테이블로 ingest
 	- 접근: domain/log/repository/에서 @Qualifier("clickHouseJdbcTemplate") JdbcTemplate 사용
 	- 마이그레이션: Flyway 미지원 → 커스텀 ClickHouseMigrationRunner + 스크립트(resources/db/clickhouse/)
-	- 주요 컬럼: `timestamp`(DateTime64, SDK의 @timestamp에서 변환), `service`, `host`, `level`, `logger`, `thread`, `message`, `http_method`, `http_path`, `http_status`, `response_time_ms`, `exception_class`, `stack_trace`, `env`, `raw_event`
+	- 주요 컬럼: `id`(UUID, V5에서 추가), `timestamp`(DateTime64, SDK의 @timestamp에서 변환), `service`, `host`, `level`, `logger`, `thread`, `message`, `http_method`, `http_path`, `http_status`, `response_time_ms`, `exception_class`, `stack_trace`, `env`, `raw_event`
 	- 기존 `ingest_time`/`ingest_time_utc` 컬럼은 V4 마이그레이션에서 `timestamp`로 통합됨
 두 데이터소스 모두 HikariCP 사용. Oracle SqlSessionFactory는 Flyway 완료 후 생성되며, ClickHouse JdbcTemplate은 custom migration runner 완료 후 사용되도록 구성되어 있다.
 
-### 3.2 패키지 구조 
+### 3.2 패키지 구조
 ```
 com.app.lighthouse
 ├── domain/          # 도메인(컨텍스트) 단위 비즈니스 로직
+│   ├── alert/       # Slack 알림 시스템 (스케줄러 기반, API 없음)
+│   │   ├── config/  # AlertProperties (@ConfigurationProperties)
+│   │   ├── dto/     # AlertResult, AlertLevel
+│   │   ├── rule/    # AlertRule 인터페이스 + 구현체 (ErrorRate, ResponseTime, ApiFailure)
+│   │   ├── repository/ # AlertLogRepository (ClickHouse 알림 쿼리)
+│   │   └── service/ # AlertScheduler, CooldownManager, SlackNotifier
 │   ├── auth/        # JWT 로그인/리프레시 (POST /api/auth/login, /api/auth/refresh)
 │   ├── application/ # 모니터링 앱 CRUD + ClickHouse 기반 자동 동기화
 │   ├── dashboard/   # 집계 지표 (GET /api/dashboard/*)
-│   └── log/         # 로그 검색/타임라인 (GET /api/logs, /api/logs/timeline)
+│   └── log/         # 로그 검색/타임라인 (GET /api/logs, /api/logs/timeline, /api/logs/{id})
 ├── global/          # 공통: 보안/예외/응답 래퍼 등
 │   ├── config/      # SecurityConfig, WebSocketConfig, datasource configs, FlywayConfig, OpenApiConfig
 │   ├── exception/   # GlobalExceptionHandler (@RestControllerAdvice)
@@ -100,9 +106,13 @@ com.app.lighthouse
 
 ## 5. 스케줄러 (Scheduler)
 - `ApplicationSyncScheduler`는 **5분마다** 실행된다.
-- 동작:
   - ClickHouse에서 최근 24시간 내 활성 서비스(애플리케이션) 목록을 조회한다.
   - 신규로 발견된 서비스가 있으면 Oracle의 `lh_application`에 자동 등록한다.
+- `AlertScheduler`는 **10분마다** 실행된다. (`lighthouse.alert.enabled: true`일 때만)
+  - 에러율 급증, 응답 시간 급증, API 연속 실패 3가지 규칙을 평가한다.
+  - 트리거 시 Slack Webhook + WebSocket(`/topic/dashboard/alerts`)으로 알림 발송.
+  - 인메모리 CooldownManager로 동일 규칙 10분 내 재발송 방지.
+  - 복구 시 RESOLVED 알림 1회 발송.
 
 ## 6. WebSocket
 - SockJS 기반 STOMP 엔드포인트: `/ws`
@@ -111,17 +121,15 @@ com.app.lighthouse
   - `/topic/dashboard/alerts`
 
 ## 7. 설정 (Configuration)
-- 단일 `application.yml`을 사용하며, 프로파일별 파일을 분리하지 않는다.
-- 주요 환경변수:
+- `application.yml` — 비민감 설정 (드라이버, pool 이름, 알림 규칙 임계값 등)
+- `application-secrets.yml` — **민감정보** (DB 접속정보, JWT secret, 비밀번호, Slack webhook URL, CORS/WS origins). `.gitignore`에 등록되어 git에 포함되지 않음.
+- `application-secrets.yml.example` — 팀원용 템플릿. 최초 세팅 시 복사하여 사용.
+- `spring.profiles.include: secrets`로 secrets 파일을 자동 로딩한다.
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_SID` | Oracle connection | `localhost:1521/FREEPDB1` |
-| `ORACLE_USERNAME`, `ORACLE_PASSWORD` | Oracle credentials | `lighthouse` / `lighthousepass` |
-| `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT` | ClickHouse connection | `localhost:8123` |
-| `CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD` | ClickHouse credentials | `lighthouse` / `chpass` |
-| `JWT_SECRET` | JWT signing key | hardcoded dev value |
-| `INIT_ADMIN_ENABLED` | Create admin on startup | `true` |
+### 민감정보 분리 원칙
+- **`application.yml`에 크리덴셜, 시크릿, 내부 IP, webhook URL을 직접 쓰지 않는다.**
+- 환경변수 기본값(`:` 뒤)에도 실제 값을 넣지 않는다.
+- 민감정보는 반드시 `application-secrets.yml`에 작성한다.
 
 ## 8. API Documentation
 - Swagger UI: `/swagger-ui.html` (SpringDoc OpenAPI 3.0.1)
@@ -147,3 +155,4 @@ com.app.lighthouse
   - test: 테스트 코드 추가/수정
   - chore: 빌드 업무, 패키지 매니저 설정 등
 - body: 상세 설명 (72자 이내 줄바꿈)
+- **백엔드 작업 시 커밋 범위는 `app/backend/` 하위 파일만 포함한다.** 프론트엔드 등 다른 하위 프로젝트 파일을 함께 커밋하지 않는다.

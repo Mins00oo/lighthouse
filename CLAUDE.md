@@ -112,7 +112,8 @@ dependencies {
 | 커스텀 대시보드 UI (드래그&드롭 위젯) | 완료 |
 | 고정 모니터링 대시보드 | 완료 |
 | WebSocket 실시간 푸시 (트리거 로직) | 미구현 |
-| 알림 규칙/알림 시스템 | 미구현 (향후 예정) |
+| Slack 알림 시스템 (에러율/응답시간/API실패) | 완료 |
+| 알림 이력 저장/조회 API | 미구현 (향후 예정) |
 | 프론트엔드 템플릿 잔존 코드 정리 (Minimals) | 미정리 |
 
 ## 커밋 컨벤션
@@ -125,14 +126,21 @@ dependencies {
 
 type 목록: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
+**커밋 범위 규칙:** 각 하위 프로젝트 작업 시 해당 프로젝트 파일만 커밋한다. 백엔드 작업에서 프론트엔드 파일을 함께 커밋하지 않고, 그 반대도 마찬가지다.
+
+## 설정 파일 구조 (백엔드)
+
+- `application.yml` — 비민감 설정만 포함 (드라이버, pool, 알림 임계값 등)
+- `application-secrets.yml` — 민감정보 (DB 접속, JWT secret, 비밀번호, Slack webhook, CORS/WS origins). **`.gitignore` 등록됨.**
+- `application-secrets.yml.example` — 팀원용 템플릿
+- **`application.yml`에 크리덴셜이나 내부 IP를 직접 쓰지 않는다. 환경변수 기본값(`:` 뒤)에도 실제 값을 넣지 않는다.**
+
 ## 주요 환경변수
 
-| 변수 | 기본값 | 용도 |
-|------|--------|------|
-| `ORACLE_HOST/PORT/SID` | `localhost:1521/FREEPDB1` | Oracle 접속 |
-| `ORACLE_USERNAME/PASSWORD` | `lighthouse/lighthousepass` | Oracle 인증 |
-| `CLICKHOUSE_HOST/PORT` | `localhost:8123` | ClickHouse 접속 |
-| `CLICKHOUSE_USERNAME/PASSWORD` | `lighthouse/chpass` | ClickHouse 인증 |
-| `JWT_SECRET` | 하드코딩된 개발용 값 | JWT 서명 키 |
-| `INIT_ADMIN_ENABLED` | `true` | 부팅 시 관리자 계정 생성 여부 |
-| `CORS_ORIGINS` | `localhost:3000,localhost:3030` | 허용 CORS 출처 |
+| 변수 | 용도 |
+|------|------|
+| `INIT_ADMIN_ENABLED` | 부팅 시 관리자 계정 생성 여부 |
+| `ALERT_ENABLED` | 알림 시스템 활성화 여부 |
+| `ALERT_CHECK_INTERVAL_MS` | 알림 체크 주기 (기본 10분) |
+
+민감 값(DB 접속정보, JWT secret, Slack webhook URL, CORS origins 등)은 `application-secrets.yml`에서 관리한다.
