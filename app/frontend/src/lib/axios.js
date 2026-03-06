@@ -16,7 +16,13 @@ import {
 const axiosInstance = axios.create({ baseURL: CONFIG.serverUrl });
 
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // ApiResponse envelope unwrap: { success, data, timestamp } → data만 남김
+    if (response.data?.success && 'data' in response.data) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   (error) => {
     // 네트워크 에러(서버 다운) 감지 → 점검 화면 전환
     if (!error.response) {
@@ -60,37 +66,16 @@ export const fetcher = async (args) => {
 
 export const endpoints = {
   health: '/api/health',
-  chat: '/api/chat',
-  kanban: '/api/kanban',
-  calendar: '/api/calendar',
   auth: {
     signIn: '/api/auth/login',
     refresh: '/api/auth/refresh',
     signUp: '/api/auth/sign-up',
   },
-  mail: {
-    list: '/api/mail/list',
-    details: '/api/mail/details',
-    labels: '/api/mail/labels',
-  },
-  post: {
-    list: '/api/post/list',
-    details: '/api/post/details',
-    latest: '/api/post/latest',
-    search: '/api/post/search',
-  },
-  product: {
-    list: '/api/product/list',
-    details: '/api/product/details',
-    search: '/api/product/search',
-  },
   dashboard: {
     summary: '/api/dashboard/summary',
-    serverStatus: '/api/dashboard/server-status',
-    logVolume: '/api/dashboard/log-volume',
-    logLevelDist: '/api/dashboard/log-level-distribution',
-    errorTrend: '/api/dashboard/error-trend',
-    apiRanking: '/api/dashboard/api-ranking',
-    recentErrors: '/api/dashboard/recent-errors',
+    requestVolume: '/api/dashboard/request-volume',
+    responseTime: '/api/dashboard/response-time',
+    slowApis: '/api/dashboard/slow-apis',
+    errorLogs: '/api/dashboard/error-logs',
   },
 };

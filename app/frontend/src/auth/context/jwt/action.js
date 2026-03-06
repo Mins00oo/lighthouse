@@ -15,7 +15,7 @@ export const signInWithPassword = async ({ username, password }) => {
 
     const res = await axios.post(endpoints.auth.signIn, params);
 
-    const { accessToken } = res.data.data;
+    const { accessToken } = res.data;
 
     if (!accessToken) {
       throw new Error('인증 토큰을 받지 못했습니다.');
