@@ -22,13 +22,7 @@ services:
       KAFKA_CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     ports:
       - "9092:9092"
-    healthcheck:
-      test: /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
+      
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
     container_name: clickhouse
@@ -43,8 +37,7 @@ services:
     volumes:
       - clickhouse-data:/var/lib/clickhouse
     depends_on:
-      kafka:
-        condition: service_healthy
+      - kafka
 
   vector:
     image: timberio/vector:0.38.0-alpine
@@ -56,8 +49,7 @@ services:
       - ${LOG_SOURCE_PATH:-./../logs}:/var/log/apps:ro
       - vector-data:/var/lib/vector
     depends_on:
-      kafka:
-        condition: service_healthy
+      - kafka
       
   oracle:
     image: gvenzl/oracle-free:latest
