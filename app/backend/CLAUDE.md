@@ -60,6 +60,8 @@ Lighthouse_BE는 **로그 모니터링 플랫폼 백엔드**입니다. Spring Bo
 - ClickHouse(Secondary): 로그 저장(app_logs) + Kafka 엔진 테이블로 ingest
 	- 접근: domain/log/repository/에서 @Qualifier("clickHouseJdbcTemplate") JdbcTemplate 사용
 	- 마이그레이션: Flyway 미지원 → 커스텀 ClickHouseMigrationRunner + 스크립트(resources/db/clickhouse/)
+	- 주요 컬럼: `timestamp`(DateTime64, SDK의 @timestamp에서 변환), `service`, `host`, `level`, `logger`, `thread`, `message`, `http_method`, `http_path`, `http_status`, `response_time_ms`, `exception_class`, `stack_trace`, `env`, `raw_event`
+	- 기존 `ingest_time`/`ingest_time_utc` 컬럼은 V4 마이그레이션에서 `timestamp`로 통합됨
 두 데이터소스 모두 HikariCP 사용. Oracle SqlSessionFactory는 Flyway 완료 후 생성되며, ClickHouse JdbcTemplate은 custom migration runner 완료 후 사용되도록 구성되어 있다.
 
 ### 3.2 패키지 구조 
