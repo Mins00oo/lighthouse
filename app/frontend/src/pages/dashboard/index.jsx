@@ -1,17 +1,17 @@
 import { CONFIG } from 'src/global-config';
 
-import { CustomDashboardView } from 'src/sections/custom-dashboard/view';
+import { OverviewDashboardView } from 'src/sections/overview/view';
 
 // ----------------------------------------------------------------------
 
 const metadata = { title: `Dashboard - ${CONFIG.appName}` };
 
-export default function OverviewAppPage() {
+export default function OverviewPage() {
   return (
     <>
       <title>{metadata.title}</title>
 
-      <CustomDashboardView />
+      <OverviewDashboardView />
     </>
   );
 }

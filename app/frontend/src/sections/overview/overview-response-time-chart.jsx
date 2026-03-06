@@ -1,0 +1,78 @@
+import Box from '@mui/material/Box';
+
+import { useMonitoringTokens } from 'src/hooks/use-monitoring-tokens';
+
+import { Chart, useChart } from 'src/components/chart';
+
+// ----------------------------------------------------------------------
+
+export function OverviewResponseTimeChart({ chart, sx }) {
+  const t = useMonitoringTokens();
+
+  const chartColors = [t.chart.warn, t.chart.error];
+
+  const chartOptions = useChart({
+    colors: chartColors,
+    chart: { background: 'transparent', toolbar: { show: false } },
+    theme: { mode: t.mode },
+    xaxis: {
+      categories: chart?.categories ?? [],
+      labels: { style: { fontSize: '10px', colors: t.chart.axis } },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    yaxis: {
+      labels: {
+        formatter: (val) => `${val} ms`,
+        style: { colors: [t.chart.axis] },
+      },
+    },
+    grid: {
+      borderColor: t.chart.grid,
+      strokeDashArray: 3,
+      xaxis: { lines: { show: false } },
+    },
+    stroke: { width: 2.5, curve: 'smooth' },
+    markers: { size: 0, hover: { size: 5 } },
+    tooltip: {
+      theme: t.mode,
+      shared: true,
+      intersect: false,
+      y: { formatter: (val) => `${val} ms` },
+    },
+    legend: {
+      show: true,
+      position: 'top',
+      horizontalAlign: 'right',
+      labels: { colors: t.text.secondary },
+      markers: { size: 6, shape: 'circle' },
+      itemMargin: { horizontal: 12 },
+    },
+    ...chart?.options,
+  });
+
+  return (
+    <Box
+      sx={{
+        bgcolor: t.bg.card,
+        borderRadius: t.radius,
+        border: `1px solid ${t.border.subtle}`,
+        overflow: 'hidden',
+        ...sx,
+      }}
+    >
+      <Box sx={{ px: 2.5, pt: 2.5, pb: 1 }}>
+        <Box sx={{ fontSize: '0.875rem', fontWeight: 600, color: t.text.primary }}>
+          시간대별 응답 시간
+        </Box>
+        <Box sx={{ fontSize: '0.75rem', color: t.text.disabled, mt: 0.25 }}>
+          P95 / P99 응답 시간 추이 (ms)
+        </Box>
+      </Box>
+
+      <Box sx={{ px: 1 }}>
+        <Chart type="line" series={chart?.series ?? []} options={chartOptions} sx={{ height: 320 }} />
+      </Box>
+    </Box>
+  );
+}
