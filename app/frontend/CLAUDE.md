@@ -10,7 +10,7 @@
 - src/sections/ — 기능별 UI 컴포넌트 (각 기능의 view/ 하위 폴더에 메인 페이지 뷰 포함)
 - src/pages/ — src/sections/*/view/ 를 import하는 얇은 페이지 래퍼
 - src/routes/ — 라우트 정의 (paths.js에 경로 상수, sections/에 라우트 설정)
-- src/actions/ — SWR 데이터 페칭 훅 (예: monitoring.js에 대시보드 데이터)
+- src/actions/ — SWR 데이터 페칭 훅 (예: overview.js에 대시보드 데이터)
 - src/schemas/ — zod 스키마(요청/응답), 파서/정규화 로직 (도메인별 파일 분리 권장)
 - src/lib/axios.js — 인터셉터가 설정된 Axios 인스턴스 (401 리다이렉트, 서버 다운 감지)
 - src/components/ — Minimals 템플릿의 재사용 가능한 UI 컴포넌트
@@ -45,7 +45,13 @@
 - 새 아이콘이 필요할 때: `icon-sets.js`에 이미 등록된 아이콘을 우선 사용하고, 없으면 Iconify API에서 SVG body를 가져와 `icon-sets.js`에 먼저 등록한 뒤 사용한다.
 - 미등록 아이콘을 그대로 사용하면 온라인 로드로 인한 깜빡임(flickering)이 발생하므로 금지한다.
 
-### 2.4 UI / 디자인 시스템
+### 2.4 그리드/목록 UI 규칙
+- 데이터 목록(테이블 형태)은 MUI `<DataGrid>` (`@mui/x-data-grid`)를 최우선으로 사용한다.
+- 수동으로 `<Table>`, `<Box>` 반복을 이용한 테이블 구현을 금지한다.
+- 컬럼에는 반드시 `width` 또는 `minWidth`를 지정하여 긴 값이 인접 컬럼에 영향을 주지 않도록 한다.
+- 숫자/단위 값은 적절한 포맷터를 적용한다 (예: ms → `fDuration()` 으로 초/분 자동 변환).
+
+### 2.5 UI / 디자인 시스템
 
 - 디자인 토큰/기존 컴포넌트 우선 사용.
 - 임의 색상/간격/그림자/애니메이션을 추가하지 않는다(요구가 있을 때만).
@@ -55,7 +61,7 @@
   - 여러 지표를 한 화면에서 보기 때문에 정보 밀도 + 명확한 계층 + 빠른 스캔을 목표로 한다
 - 접근성 기본 준수(semantic element, aria 최소 규칙, 키보드 포커스 흐름).
 
-### 2.5 상태관리/데이터
+### 2.6 상태관리/데이터
 - 서버 상태는 SWR(src/actions/)로만 관리한다.
   - 컴포넌트에서 axios 직접 호출 금지(예외 필요 시 근거를 주석/문서로 남긴다).
   - Zustand에 서버 데이터 저장 금지(캐시 중복/불일치 방지).
@@ -68,7 +74,7 @@
   - 빈 값: 데이터 없음 상태를 사용자가 이해할 수 있게 표시(가능하면 원인/조건 포함)
   - 에러: 재시도(가능한 경우)와 사용자 메시지 제공
 
-### 2.6 에러 처리(전역 vs 화면)
+### 2.7 에러 처리(전역 vs 화면)
 - 401: axios 인터셉터에서 인증 리다이렉트(기존 동작 유지)
 - 네트워크 다운/서버 장애: 전역 안내(토스트 또는 배너) + 필요 시 폴백 화면 제공
 - 화면 단위 4xx/유효성 문제: 해당 화면에서 사용자 친화 메시지로 처리
@@ -150,7 +156,7 @@
   - order (주문 관리)
   - auth-demo, components (데모/쇼케이스)
   - main 사이트 페이지 (pricing, payment, about, contact 등)
-- 신규 기능 개발 시 이들 템플릿 코드를 재사용/참조하지 않는다. Lighthouse 고유 섹션(`monitoring/`, `custom-dashboard/`, `overview-v2/`, `server-instances/`, `logs/`, `user/`)만 활용한다.
+- 신규 기능 개발 시 이들 템플릿 코드를 재사용/참조하지 않는다. Lighthouse 고유 섹션(`overview/`, `server-instances/`, `logs/`, `user/`)만 활용한다.
 - 향후 정리 작업 시 위 목록을 기준으로 삭제한다.
 
 ## 8. Deep Docs
