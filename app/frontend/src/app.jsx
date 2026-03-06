@@ -15,8 +15,6 @@ import { ProgressBar } from 'src/components/progress-bar';
 import { MotionLazy } from 'src/components/animate/motion-lazy';
 import { SettingsDrawer, defaultSettings, SettingsProvider } from 'src/components/settings';
 
-import { CheckoutProvider } from 'src/sections/checkout/context';
-
 import { AuthProvider as JwtAuthProvider } from 'src/auth/context/jwt';
 import { AuthProvider as Auth0AuthProvider } from 'src/auth/context/auth0';
 import { AuthProvider as AmplifyAuthProvider } from 'src/auth/context/amplify';
@@ -48,12 +46,10 @@ export default function App({ children }) {
             <ServerHealthProvider>
               <AuthProvider>
                 <MotionLazy>
-                  <CheckoutProvider>
-                    <Snackbar />
-                    <ProgressBar />
-                    <SettingsDrawer defaultSettings={defaultSettings} />
-                    {children}
-                  </CheckoutProvider>
+                  <Snackbar />
+                  <ProgressBar />
+                  <SettingsDrawer defaultSettings={defaultSettings} />
+                  {children}
                 </MotionLazy>
               </AuthProvider>
             </ServerHealthProvider>

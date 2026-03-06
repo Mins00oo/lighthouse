@@ -4,10 +4,8 @@ import { Navigate } from 'react-router';
 import { paths } from 'src/routes/paths';
 
 import { mainRoutes } from './main';
-import { authDemoRoutes } from './auth-demo';
 import { dashboardRoutes } from './dashboard';
 import { authRoutes, loginRoute } from './auth';
-import { componentsRoutes } from './components';
 
 // ----------------------------------------------------------------------
 
@@ -24,16 +22,12 @@ export const routesSection = [
 
   // Auth
   ...authRoutes,
-  ...authDemoRoutes,
 
   // Dashboard
   ...dashboardRoutes,
 
   // Main
   ...mainRoutes,
-
-  // Components
-  ...componentsRoutes,
 
   // No match
   { path: '*', element: <Page404 /> },
