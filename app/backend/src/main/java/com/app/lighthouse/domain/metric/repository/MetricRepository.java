@@ -65,22 +65,31 @@ public class MetricRepository {
     }
 
     public SystemMetricRow getRecentAvg(String service, int minutes) {
+        // ClickHouse avg()는 데이터 없으면 NaN을 반환 → getLong() 에러 발생
+        // count()로 먼저 데이터 존재 여부를 확인하고, ifNotFinite()로 NaN을 0으로 대체
+        String countSql = "SELECT count() FROM " + TABLE +
+                " WHERE service = ? AND timestamp >= now() - INTERVAL " + minutes + " MINUTE";
+        Long count = jdbc.queryForObject(countSql, Long.class, service);
+        if (count == null || count == 0) {
+            return null;
+        }
+
         String sql = "SELECT" +
                 " now() AS timestamp, ? AS service," +
-                " avg(cpu_usage_percent) AS cpu_usage_percent," +
-                " avg(memory_used_bytes) AS memory_used_bytes," +
-                " avg(memory_max_bytes) AS memory_max_bytes," +
-                " avg(jvm_heap_used) AS jvm_heap_used," +
-                " avg(jvm_heap_max) AS jvm_heap_max," +
-                " avg(jvm_nonheap_used) AS jvm_nonheap_used," +
-                " avg(jvm_threads_live) AS jvm_threads_live," +
-                " avg(jvm_gc_pause_ms) AS jvm_gc_pause_ms," +
-                " avg(hikari_active) AS hikari_active," +
-                " avg(hikari_idle) AS hikari_idle," +
-                " avg(hikari_pending) AS hikari_pending," +
+                " ifNotFinite(avg(cpu_usage_percent), 0) AS cpu_usage_percent," +
+                " ifNotFinite(avg(memory_used_bytes), 0) AS memory_used_bytes," +
+                " ifNotFinite(avg(memory_max_bytes), 0) AS memory_max_bytes," +
+                " ifNotFinite(avg(jvm_heap_used), 0) AS jvm_heap_used," +
+                " ifNotFinite(avg(jvm_heap_max), 0) AS jvm_heap_max," +
+                " ifNotFinite(avg(jvm_nonheap_used), 0) AS jvm_nonheap_used," +
+                " ifNotFinite(avg(jvm_threads_live), 0) AS jvm_threads_live," +
+                " ifNotFinite(avg(jvm_gc_pause_ms), 0) AS jvm_gc_pause_ms," +
+                " ifNotFinite(avg(hikari_active), 0) AS hikari_active," +
+                " ifNotFinite(avg(hikari_idle), 0) AS hikari_idle," +
+                " ifNotFinite(avg(hikari_pending), 0) AS hikari_pending," +
                 " max(http_server_requests) AS http_server_requests," +
-                " avg(tomcat_threads_busy) AS tomcat_threads_busy," +
-                " avg(tomcat_threads_max) AS tomcat_threads_max" +
+                " ifNotFinite(avg(tomcat_threads_busy), 0) AS tomcat_threads_busy," +
+                " ifNotFinite(avg(tomcat_threads_max), 0) AS tomcat_threads_max" +
                 " FROM " + TABLE +
                 " WHERE service = ? AND timestamp >= now() - INTERVAL " + minutes + " MINUTE";
         List<SystemMetricRow> rows = jdbc.query(sql, this::mapRow, service, service);
