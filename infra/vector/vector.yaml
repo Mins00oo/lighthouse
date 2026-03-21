@@ -3,6 +3,7 @@ sources:
     type: file
     include:
       - /var/log/apps/*/app.log
+      - /var/log/apps/*/lighthouse.log
     read_from: beginning
 
 transforms:
