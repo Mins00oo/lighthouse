@@ -16,6 +16,14 @@ import { usePathname } from '../hooks';
 
 // Overview
 const IndexPage = lazy(() => import('src/pages/dashboard'));
+// Health
+const HealthPage = lazy(() => import('src/pages/dashboard/health'));
+// Metrics
+const MetricsPage = lazy(() => import('src/pages/dashboard/metrics'));
+// Business
+const BusinessPage = lazy(() => import('src/pages/dashboard/business'));
+// Alerts
+const AlertsPage = lazy(() => import('src/pages/dashboard/alerts'));
 // Logs
 const LogListPage = lazy(() => import('src/pages/dashboard/logs/list'));
 const LogDetailsPage = lazy(() => import('src/pages/dashboard/logs/details'));
@@ -109,6 +117,10 @@ export const dashboardRoutes = [
           { path: ':id', element: <ServerInstanceDetailsPage /> },
         ],
       },
+      { path: 'health', element: <HealthPage /> },
+      { path: 'metrics', element: <MetricsPage /> },
+      { path: 'business', element: <BusinessPage /> },
+      { path: 'alerts', element: <AlertsPage /> },
       { path: 'permission', element: <PermissionDeniedPage /> },
       { path: 'params', element: <ParamsPage /> },
       { path: 'blank', element: <BlankPage /> },

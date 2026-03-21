@@ -63,5 +63,17 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/server-instances`,
       details: (id) => `${ROOTS.DASHBOARD}/server-instances/${id}`,
     },
+    health: {
+      root: `${ROOTS.DASHBOARD}/health`,
+    },
+    metrics: {
+      root: `${ROOTS.DASHBOARD}/metrics`,
+    },
+    business: {
+      root: `${ROOTS.DASHBOARD}/business`,
+    },
+    alerts: {
+      root: `${ROOTS.DASHBOARD}/alerts`,
+    },
   },
 };

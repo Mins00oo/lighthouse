@@ -2,6 +2,8 @@ import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
+import Skeleton from '@mui/material/Skeleton';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -9,8 +11,11 @@ import { useRouter } from 'src/routes/hooks';
 import { useMonitoringTokens } from 'src/hooks/use-monitoring-tokens';
 
 import { toKSTString } from 'src/utils/format-time';
+import { fShortenNumber } from 'src/utils/format-number';
 
+import { useGetHealthStatus } from 'src/actions/health';
 import { DashboardContent } from 'src/layouts/dashboard';
+import { useGetBusinessSummary } from 'src/actions/business';
 import {
   useGetSlowApis,
   useGetErrorLogs,
@@ -18,6 +23,8 @@ import {
   useGetRequestVolume,
   useGetOverviewSummary,
 } from 'src/actions/overview';
+
+import { Iconify } from 'src/components/iconify';
 
 import { OverviewFilterBar } from '../overview-filter-bar';
 import { OverviewSummaryCards } from '../overview-summary-cards';
@@ -77,6 +84,10 @@ export function OverviewDashboardView() {
   const { slowApis } = useGetSlowApis(from, to);
   const { errorLogs } = useGetErrorLogs(from, to);
 
+  // --- Health & Business ---
+  const { healthStatus, healthStatusLoading, healthStatusError } = useGetHealthStatus();
+  const { businessSummary, businessSummaryLoading } = useGetBusinessSummary();
+
   // --- Chart data transforms ---
   const requestVolumeChart = useMemo(() => buildRequestVolumeChart(requestVolume), [requestVolume]);
   const responseTimeChart = useMemo(() => buildResponseTimeChart(responseTime), [responseTime]);
@@ -117,9 +128,100 @@ export function OverviewDashboardView() {
         />
       </Box>
 
+      {/* Server Health Badge */}
+      <Box sx={{ mb: 2 }}>
+        {healthStatusError ? (
+          <Alert severity="warning" sx={{ fontSize: '0.8rem' }}>
+            Picook 서버에 연결할 수 없습니다
+          </Alert>
+        ) : (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              px: 2,
+              py: 1.5,
+              bgcolor: t.bg.card,
+              borderRadius: t.radius,
+              border: `1px solid ${t.border.subtle}`,
+            }}
+          >
+            {healthStatusLoading ? (
+              <Skeleton variant="rounded" width={200} height={24} />
+            ) : (
+              <>
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    bgcolor: healthStatus?.status === 'UP' ? t.status.success : t.status.error,
+                    boxShadow: `0 0 6px ${healthStatus?.status === 'UP' ? t.status.success : t.status.error}`,
+                  }}
+                />
+                <Box sx={{ fontSize: '0.8rem', fontWeight: 600, color: t.text.primary }}>
+                  Picook 서버: {healthStatus?.status || 'UNKNOWN'}
+                </Box>
+                {healthStatus?.responseTimeMs > 0 && (
+                  <Box sx={{ fontSize: '0.7rem', color: t.text.disabled }}>
+                    ({healthStatus.responseTimeMs}ms)
+                  </Box>
+                )}
+                {healthStatus?.checkedAt && (
+                  <Box sx={{ fontSize: '0.7rem', color: t.text.disabled, ml: 'auto' }}>
+                    마지막 체크: {healthStatus.checkedAt?.replace('T', ' ').substring(0, 19)}
+                  </Box>
+                )}
+              </>
+            )}
+          </Box>
+        )}
+      </Box>
+
       {/* Summary Cards */}
       <Box sx={{ mb: 2 }}>
         <OverviewSummaryCards data={summary} loading={summaryLoading} />
+      </Box>
+
+      {/* Business Summary Cards */}
+      <Box sx={{ mb: 2 }}>
+        <Grid container spacing={2}>
+          {[
+            { key: 'dau', title: 'DAU', icon: 'solar:users-group-rounded-bold', color: t.accent.blue },
+            { key: 'totalCoachingToday', title: '오늘 코칭', icon: 'solar:chef-hat-bold', color: t.accent.green },
+            { key: 'totalShortsToday', title: '쇼츠 변환', icon: 'solar:video-frame-play-vertical-bold', color: t.accent.purple },
+          ].map((card) => (
+            <Grid key={card.key} size={{ xs: 12, sm: 4 }}>
+              <Box
+                sx={{
+                  p: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  bgcolor: t.bg.card,
+                  borderRadius: t.radius,
+                  border: `1px solid ${t.border.subtle}`,
+                  borderLeft: `3px solid ${card.color}`,
+                }}
+              >
+                <Iconify icon={card.icon} width={22} sx={{ color: card.color, flexShrink: 0 }} />
+                <Box>
+                  <Box sx={{ fontSize: '0.7rem', fontWeight: 500, color: t.text.secondary }}>
+                    {card.title}
+                  </Box>
+                  {businessSummaryLoading ? (
+                    <Skeleton variant="text" width={50} height={28} />
+                  ) : (
+                    <Box sx={{ fontSize: '1.25rem', fontWeight: 700, color: t.text.primary }}>
+                      {businessSummary?.[card.key] != null ? fShortenNumber(businessSummary[card.key]) : '-'}
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
 
       {/* Charts */}

@@ -1,5 +1,5 @@
 import rawAxios from 'axios';
-import { useMemo, useRef, useState, useEffect, useContext, useCallback, createContext } from 'react';
+import { useRef, useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
 
 import { CONFIG } from 'src/global-config';
 

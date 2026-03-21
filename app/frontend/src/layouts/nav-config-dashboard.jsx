@@ -27,6 +27,26 @@ export const navData = [
         path: paths.dashboard.serverInstances.root,
         icon: ICONS.serverInstances,
       },
+      {
+        title: 'Server Health',
+        path: paths.dashboard.health.root,
+        icon: ICONS.serverInstances,
+      },
+      {
+        title: 'Metrics',
+        path: paths.dashboard.metrics.root,
+        icon: ICONS.logs,
+      },
+      {
+        title: 'Business',
+        path: paths.dashboard.business.root,
+        icon: ICONS.dashboard,
+      },
+      {
+        title: 'Alerts',
+        path: paths.dashboard.alerts.root,
+        icon: ICONS.logs,
+      },
     ],
   },
 ];

@@ -81,4 +81,21 @@ export const endpoints = {
   logs: {
     search: '/api/logs',
   },
+  healthMonitor: {
+    status: '/api/health-monitor/status',
+    history: '/api/health-monitor/history',
+    uptime: '/api/health-monitor/uptime',
+  },
+  metrics: {
+    system: '/api/metrics/system',
+    trend: '/api/metrics/trend',
+  },
+  business: {
+    summary: '/api/business/summary',
+    users: '/api/business/users',
+    shorts: '/api/business/shorts',
+  },
+  alerts: {
+    history: '/api/alerts/history',
+  },
 };
