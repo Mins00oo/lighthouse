@@ -10,18 +10,19 @@ const PORT = 3030;
 export default defineConfig({
   plugins: [
     react(),
-    checker({
-      eslint: {
-        useFlatConfig: true,
-        lintCommand: 'eslint "./src/**/*.{js,jsx,ts,tsx}"',
-        dev: { logLevel: ['error'] },
-      },
-      overlay: {
-        position: 'tl',
-        initialIsOpen: false,
-      },
-    }),
-  ],
+    !process.env.VITE_SKIP_CHECKER &&
+      checker({
+        eslint: {
+          useFlatConfig: true,
+          lintCommand: 'eslint "./src/**/*.{js,jsx,ts,tsx}"',
+          dev: { logLevel: ['error'] },
+        },
+        overlay: {
+          position: 'tl',
+          initialIsOpen: false,
+        },
+      }),
+  ].filter(Boolean),
   resolve: {
     alias: [
       {
