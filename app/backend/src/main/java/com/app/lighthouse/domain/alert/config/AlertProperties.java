@@ -29,6 +29,8 @@ public class AlertProperties {
         private ErrorRate errorRate = new ErrorRate();
         private ResponseTime responseTime = new ResponseTime();
         private ApiFailure apiFailure = new ApiFailure();
+        private ServerDown serverDown = new ServerDown();
+        private ResourceThreshold resourceThreshold = new ResourceThreshold();
     }
 
     @Getter
@@ -53,5 +55,24 @@ public class AlertProperties {
     public static class ApiFailure {
         private boolean enabled = true;
         private int consecutiveCount = 5;
+    }
+
+    @Getter
+    @Setter
+    public static class ServerDown {
+        private boolean enabled = true;
+        private int consecutiveDownCount = 3;
+    }
+
+    @Getter
+    @Setter
+    public static class ResourceThreshold {
+        private boolean enabled = true;
+        private double cpuWarning = 80.0;
+        private double cpuCritical = 95.0;
+        private double memoryWarning = 85.0;
+        private double memoryCritical = 95.0;
+        private double diskCriticalPercent = 10.0;
+        private double hikariWarning = 80.0;
     }
 }

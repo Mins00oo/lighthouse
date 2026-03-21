@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 import com.app.lighthouse.domain.alert.config.AlertProperties;
 import com.app.lighthouse.domain.alert.dto.AlertLevel;
 import com.app.lighthouse.domain.alert.dto.AlertResult;
+import com.app.lighthouse.domain.alert.repository.AlertHistoryRepository;
+import com.app.lighthouse.domain.alert.repository.row.AlertHistoryRow;
 import com.app.lighthouse.domain.alert.rule.AlertRule;
 import com.app.lighthouse.infra.websocket.DashboardNotificationService;
 
@@ -29,6 +31,7 @@ public class AlertScheduler {
     private final CooldownManager cooldownManager;
     private final SlackNotifier slackNotifier;
     private final DashboardNotificationService dashboardNotificationService;
+    private final AlertHistoryRepository alertHistoryRepository;
 
     @Scheduled(fixedDelayString = "${lighthouse.alert.check-interval-ms:600000}", initialDelay = 0)
     public void checkAlerts() {
@@ -65,6 +68,7 @@ public class AlertScheduler {
         }
 
         cooldownManager.record(key);
+        saveHistory(result, true);
         slackNotifier.send(result.getSlackMessage());
         dashboardNotificationService.notifyAlert(Map.of(
                 "level", result.getLevel().name(),
@@ -90,11 +94,48 @@ public class AlertScheduler {
         );
 
         slackNotifier.send(resolvedMessage);
+        try {
+            alertHistoryRepository.insert(new AlertHistoryRow(
+                    LocalDateTime.now(),
+                    "",
+                    result.getRuleType(),
+                    "RESOLVED",
+                    false,
+                    resolvedMessage,
+                    ""
+            ));
+        } catch (Exception e) {
+            log.warn("Failed to save resolved alert history: {}", e.getMessage());
+        }
         dashboardNotificationService.notifyAlert(Map.of(
                 "level", AlertLevel.RESOLVED.name(),
                 "ruleType", result.getRuleType()
         ));
 
         log.info("Alert resolved: {}", key);
+    }
+
+    private void saveHistory(AlertResult result, boolean triggered) {
+        try {
+            String details = result.getDetails() != null
+                    ? new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(result.getDetails())
+                    : "";
+            String service = "";
+            if (result.getCooldownKey() != null && result.getCooldownKey().contains(":")) {
+                String[] parts = result.getCooldownKey().split(":");
+                if (parts.length >= 2) service = parts[parts.length - 1];
+            }
+            alertHistoryRepository.insert(new AlertHistoryRow(
+                    LocalDateTime.now(),
+                    service,
+                    result.getRuleType(),
+                    triggered ? (result.getLevel() != null ? result.getLevel().name() : "UNKNOWN") : "RESOLVED",
+                    triggered,
+                    result.getSlackMessage() != null ? result.getSlackMessage() : "",
+                    details
+            ));
+        } catch (Exception e) {
+            log.warn("Failed to save alert history: {}", e.getMessage());
+        }
     }
 }
