@@ -2,7 +2,7 @@ package com.app.lighthouse.domain.application.dto;
 
 import java.time.LocalDateTime;
 
-import com.app.lighthouse.infra.oracle.ApplicationRecord;
+import com.app.lighthouse.infra.persistence.ApplicationRecord;
 
 import lombok.Builder;
 import lombok.Getter;

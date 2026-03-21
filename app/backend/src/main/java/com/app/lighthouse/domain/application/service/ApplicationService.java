@@ -18,8 +18,8 @@ import com.app.lighthouse.domain.log.repository.LogRepository;
 import com.app.lighthouse.domain.log.repository.row.AppStatsRow;
 import com.app.lighthouse.domain.log.repository.row.ServerStatusRow;
 import com.app.lighthouse.domain.log.repository.row.ServiceSummaryRow;
-import com.app.lighthouse.infra.oracle.ApplicationMapper;
-import com.app.lighthouse.infra.oracle.ApplicationRecord;
+import com.app.lighthouse.infra.persistence.ApplicationMapper;
+import com.app.lighthouse.infra.persistence.ApplicationRecord;
 
 import com.app.lighthouse.global.util.TimeUtils;
 

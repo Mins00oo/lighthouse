@@ -1,9 +1,9 @@
-package com.app.lighthouse.infra.oracle;
+package com.app.lighthouse.infra.persistence;
 
 import java.time.LocalDateTime;
 
 /**
- * Oracle lh_application 테이블 조회 결과 매핑용 레코드.
+ * lh_application 테이블 조회 결과 매핑용 레코드.
  */
 public record ApplicationRecord(
         Long appId,

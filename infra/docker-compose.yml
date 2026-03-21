@@ -52,17 +52,17 @@ services:
     depends_on:
       - kafka
       
-  oracle:
-    image: gvenzl/oracle-free:latest
-    container_name: oracle
+  postgres:
+    image: postgres:15-alpine
+    container_name: lighthouse-postgres
     environment:
-      - ORACLE_PASSWORD=oraclepass # 관리자(SYS, SYSTEM) 비밀번호
-      - APP_USER=lighthouse # 애플리케이션용 사용자 계정 자동 생성
-      - APP_USER_PASSWORD=lighthousepass # 애플리케이션용 계정 비밀번호
+      - POSTGRES_DB=lighthouse
+      - POSTGRES_USER=lighthouse
+      - POSTGRES_PASSWORD=lighthousepass
     ports:
-      - "1521:1521"
+      - "5433:5432"
     volumes:
-      - oracle-data:/opt/oracle/oradata
+      - postgres-data:/var/lib/postgresql/data
       
   # --- Lighthouse Application ---
   lighthouse-be:
@@ -82,7 +82,7 @@ services:
     depends_on:
       - kafka
       - clickhouse
-      - oracle
+      - postgres
     restart: unless-stopped
 
   lighthouse-fe:
@@ -99,4 +99,4 @@ services:
 volumes:
   clickhouse-data:
   vector-data:
-  oracle-data:
+  postgres-data:

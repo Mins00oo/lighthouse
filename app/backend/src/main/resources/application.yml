@@ -7,11 +7,11 @@ spring:
   profiles:
     include: secrets
 
-  # Oracle DataSource (Primary - 앱 메타데이터)
+  # PostgreSQL DataSource (Primary - 앱 메타데이터)
   datasource:
     hikari:
-      driver-class-name: oracle.jdbc.OracleDriver
-      pool-name: oracle-pool
+      driver-class-name: org.postgresql.Driver
+      pool-name: postgres-pool
       minimum-idle: 2
 
 # ClickHouse DataSource (로그 데이터)

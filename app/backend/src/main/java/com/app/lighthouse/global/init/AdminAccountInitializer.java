@@ -6,8 +6,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import com.app.lighthouse.infra.oracle.UserMapper;
-import com.app.lighthouse.infra.oracle.UserRecord;
+import com.app.lighthouse.infra.persistence.UserMapper;
+import com.app.lighthouse.infra.persistence.UserRecord;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

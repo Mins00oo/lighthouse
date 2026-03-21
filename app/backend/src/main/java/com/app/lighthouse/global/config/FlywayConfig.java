@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 public class FlywayConfig {
 
     @Bean
-    public Flyway flyway(@Qualifier("oracleDataSource") DataSource dataSource) {
+    public Flyway flyway(@Qualifier("postgresDataSource") DataSource dataSource) {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")

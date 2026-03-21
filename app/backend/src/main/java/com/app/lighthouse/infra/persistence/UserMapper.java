@@ -1,4 +1,4 @@
-package com.app.lighthouse.infra.oracle;
+package com.app.lighthouse.infra.persistence;
 
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

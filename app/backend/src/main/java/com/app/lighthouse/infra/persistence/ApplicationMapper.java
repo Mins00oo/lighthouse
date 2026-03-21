@@ -1,4 +1,4 @@
-package com.app.lighthouse.infra.oracle;
+package com.app.lighthouse.infra.persistence;
 
 import java.util.List;
 

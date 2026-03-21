@@ -19,24 +19,24 @@ import com.zaxxer.hikari.HikariDataSource;
 
 @Configuration
 @MapperScan(
-    basePackages = "com.app.lighthouse.infra.oracle",
-    sqlSessionFactoryRef = "oracleSqlSessionFactory"
+    basePackages = "com.app.lighthouse.infra.persistence",
+    sqlSessionFactoryRef = "postgresSqlSessionFactory"
 )
-public class OracleDataSourceConfig {
+public class PostgresDataSourceConfig {
 
     @Primary
-    @Bean(name = "oracleDataSource")
+    @Bean(name = "postgresDataSource")
     @ConfigurationProperties(prefix = "spring.datasource.hikari")
-    public DataSource oracleDataSource() {
+    public DataSource postgresDataSource() {
         return new HikariDataSource();
     }
 
     @Primary
-    @Bean(name = "oracleSqlSessionFactory")
+    @Bean(name = "postgresSqlSessionFactory")
     @DependsOn("flyway")
-    public SqlSessionFactory oracleSqlSessionFactory() throws Exception {
+    public SqlSessionFactory postgresSqlSessionFactory() throws Exception {
         SqlSessionFactoryBean factory = new SqlSessionFactoryBean();
-        factory.setDataSource(oracleDataSource());
+        factory.setDataSource(postgresDataSource());
         factory.setMapperLocations(
             new PathMatchingResourcePatternResolver()
                 .getResources("classpath:mapper/**/*.xml")
@@ -50,14 +50,14 @@ public class OracleDataSourceConfig {
     }
 
     @Primary
-    @Bean(name = "oracleSqlSessionTemplate")
-    public SqlSessionTemplate oracleSqlSessionTemplate() throws Exception {
-        return new SqlSessionTemplate(oracleSqlSessionFactory());
+    @Bean(name = "postgresSqlSessionTemplate")
+    public SqlSessionTemplate postgresSqlSessionTemplate() throws Exception {
+        return new SqlSessionTemplate(postgresSqlSessionFactory());
     }
 
     @Primary
-    @Bean(name = "oracleTransactionManager")
-    public PlatformTransactionManager oracleTransactionManager() {
-        return new DataSourceTransactionManager(oracleDataSource());
+    @Bean(name = "postgresTransactionManager")
+    public PlatformTransactionManager postgresTransactionManager() {
+        return new DataSourceTransactionManager(postgresDataSource());
     }
 }

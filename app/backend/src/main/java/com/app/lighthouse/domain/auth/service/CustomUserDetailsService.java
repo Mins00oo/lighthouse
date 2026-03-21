@@ -9,8 +9,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import com.app.lighthouse.infra.oracle.UserMapper;
-import com.app.lighthouse.infra.oracle.UserRecord;
+import com.app.lighthouse.infra.persistence.UserMapper;
+import com.app.lighthouse.infra.persistence.UserRecord;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
