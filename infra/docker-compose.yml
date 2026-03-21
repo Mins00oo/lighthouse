@@ -64,6 +64,38 @@ services:
     volumes:
       - oracle-data:/opt/oracle/oradata
       
+  # --- Lighthouse Application ---
+  lighthouse-be:
+    build:
+      context: ../app/backend
+      dockerfile: Dockerfile
+    container_name: lighthouse-be
+    ports:
+      - "9090:9090"
+    environment:
+      - SPRING_PROFILES_INCLUDE=secrets
+      - PICOOK_BASE_URL=${PICOOK_BASE_URL:-http://host.docker.internal:8080}
+      - ALERT_ENABLED=${ALERT_ENABLED:-false}
+      - INIT_ADMIN_ENABLED=${INIT_ADMIN_ENABLED:-true}
+    volumes:
+      - ../app/backend/src/main/resources/application-secrets.yml:/app/config/application-secrets.yml:ro
+    depends_on:
+      - kafka
+      - clickhouse
+      - oracle
+    restart: unless-stopped
+
+  lighthouse-fe:
+    build:
+      context: ../app/frontend
+      dockerfile: Dockerfile
+    container_name: lighthouse-fe
+    ports:
+      - "3030:3030"
+    depends_on:
+      - lighthouse-be
+    restart: unless-stopped
+
 volumes:
   clickhouse-data:
   vector-data:
