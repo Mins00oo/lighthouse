@@ -1,3 +1,6 @@
+server:
+  port: 9090
+
 spring:
   application:
     name: Lighthouse_BE
@@ -33,6 +36,22 @@ springdoc:
     path: /v3/api-docs
 
 lighthouse:
+  health:
+    check-interval-ms: ${HEALTH_CHECK_INTERVAL_MS:60000}
+  metric:
+    collect-interval-ms: ${METRIC_COLLECT_INTERVAL_MS:60000}
+  business:
+    collect-interval-ms: ${BUSINESS_COLLECT_INTERVAL_MS:300000}
+  targets:
+    - name: picook-backend
+      base-url: ${PICOOK_BASE_URL:http://localhost:8080}
+      health-path: /actuator/health
+      prometheus-path: /actuator/prometheus
+      info-path: /actuator/info
+      business-paths:
+        - /api/monitoring/users
+        - /api/monitoring/dashboard
+        - /api/monitoring/shorts
   alert:
     enabled: ${ALERT_ENABLED:false}
     check-interval-ms: ${ALERT_CHECK_INTERVAL_MS:600000}
@@ -52,6 +71,17 @@ lighthouse:
       api-failure:
         enabled: true
         consecutive-count: 5
+      server-down:
+        enabled: true
+        consecutive-down-count: 3
+      resource-threshold:
+        enabled: true
+        cpu-warning: 80.0
+        cpu-critical: 95.0
+        memory-warning: 85.0
+        memory-critical: 95.0
+        disk-critical-percent: 10.0
+        hikari-warning: 80.0
 
 logging:
   level:
